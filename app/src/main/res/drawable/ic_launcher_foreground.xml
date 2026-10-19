@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Simple speech-bubble placeholder icon -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,30C38,30 26,40 26,53C26,60 30,66 36,70L34,80L46,73C48.6,73.6 51.3,74 54,74C70,74 82,64 82,53C82,40 70,30 54,30Z" />
+    <path
+        android:fillColor="#3DDC84"
+        android:pathData="M40,50m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0" />
+    <path
+        android:fillColor="#3DDC84"
+        android:pathData="M54,50m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0" />
+    <path
+        android:fillColor="#3DDC84"
+        android:pathData="M68,50m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0" />
+</vector>
