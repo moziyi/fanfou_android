@@ -7,7 +7,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -43,15 +46,23 @@ fun DetailScreen(
     viewModel: DetailViewModel = hiltViewModel(),
 ) {
     val status by viewModel.status.collectAsStateWithLifecycle()
+    val selfUserId by viewModel.selfUserId.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     var repostTarget by remember { mutableStateOf<StatusUi?>(null) }
+    var menuOpen by remember { mutableStateOf(false) }
+
+    val isOwnStatus = status?.user?.id?.let { it == selfUserId } == true
 
     LaunchedEffect(uiState.error) {
         uiState.error?.let {
             snackbar.showSnackbar(it)
             viewModel.dismissError()
         }
+    }
+
+    LaunchedEffect(uiState.deleted) {
+        if (uiState.deleted) onBack()
     }
 
     Scaffold(
@@ -63,12 +74,52 @@ fun DetailScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
                 },
+                actions = {
+                    if (isOwnStatus) {
+                        Box {
+                            IconButton(
+                                onClick = { menuOpen = true },
+                                enabled = !uiState.deleting,
+                            ) {
+                                Icon(Icons.Filled.MoreVert, contentDescription = "更多")
+                            }
+                            DropdownMenu(
+                                expanded = menuOpen,
+                                onDismissRequest = { menuOpen = false },
+                            ) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = "删除推文",
+                                            color = MaterialTheme.colorScheme.error,
+                                        )
+                                    },
+                                    enabled = !uiState.deleting,
+                                    onClick = {
+                                        menuOpen = false
+                                        viewModel.deleteStatus()
+                                    },
+                                )
+                            }
+                        }
+                    }
+                },
             )
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         val target = status
         when {
+            // Deleted: the row is already gone from Room and onBack is about to
+            // pop, so do not flash 「消息不可用」.
+            uiState.deleted -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                )
+            }
+
             target == null && uiState.loading -> {
                 Box(
                     modifier = Modifier

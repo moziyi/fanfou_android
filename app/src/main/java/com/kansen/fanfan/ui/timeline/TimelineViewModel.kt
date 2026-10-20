@@ -118,7 +118,11 @@ class TimelineViewModel @Inject constructor(
 
     fun repost(status: StatusUi, comment: String) {
         viewModelScope.launch {
-            statusRepository.post(text = comment.trim(), repostStatusId = status.id)
+            statusRepository.post(
+                text = comment,
+                repostStatusId = status.id,
+                repostAuthor = status.user?.screenName,
+            )
                 .onSuccess { _uiState.update { it.copy(error = null) } }
                 .onFailure { t -> _uiState.update { it.copy(error = t.userMessage()) } }
         }

@@ -34,11 +34,17 @@ interface StatusDao {
     )
     fun timeline(timelineType: String, limit: Int = TIMELINE_LIMIT): Flow<List<StatusRow>>
 
-    @Query("SELECT statusId FROM timeline_entry WHERE timelineType = :timelineType ORDER BY rawid DESC LIMIT 1")
-    suspend fun newestId(timelineType: String): String?
-
     @Query("SELECT statusId FROM timeline_entry WHERE timelineType = :timelineType ORDER BY rawid ASC LIMIT 1")
     suspend fun oldestId(timelineType: String): String?
+
+    @Query("DELETE FROM timeline_entry WHERE statusId = :id")
+    suspend fun deleteTimelineEntries(id: String)
+
+    @Query("DELETE FROM status WHERE id = :id")
+    suspend fun deleteStatus(id: String)
+
+    @Query("DELETE FROM favorite_override WHERE statusId = :id")
+    suspend fun deleteFavoriteOverride(id: String)
 
     @Query(
         """

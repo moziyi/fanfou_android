@@ -5,6 +5,7 @@ import com.kansen.fanfan.core.network.auth.OAuth1Signer
 import com.kansen.fanfan.core.network.token.TokenProvider
 import okhttp3.FormBody
 import okhttp3.Interceptor
+import okhttp3.Request
 import okhttp3.Response
 import java.security.SecureRandom
 import javax.inject.Inject
@@ -31,14 +32,7 @@ class OAuthSigningInterceptor @Inject constructor(
 
         val token = tokenProvider.accessToken ?: return chain.proceed(request)
 
-        val params = LinkedHashMap<String, String>()
-        for (name in request.url.queryParameterNames) {
-            val value = request.url.queryParameter(name) ?: continue
-            params[name] = value
-        }
-        (request.body as? FormBody)?.let { form ->
-            for (i in 0 until form.size) params[form.encodedName(i)] = form.encodedValue(i)
-        }
+        val params = signingParameters(request)
 
         val header = OAuth1Signer.authorizationHeader(
             method = request.method,
@@ -60,4 +54,25 @@ class OAuthSigningInterceptor @Inject constructor(
         random.nextBytes(bytes)
         return bytes.joinToString("") { "%02x".format(it) }
     }
+}
+
+/**
+ * The parameters that participate in the OAuth signature, in their DECODED
+ * form: [OAuth1Signer] percent-encodes them again per RFC 3986.
+ *
+ * Live-verified 2026-10-19: reading `encodedName()`/`encodedValue()` from a
+ * form body double-encodes (space → `%2520`) and the server answers 401
+ * "Invalid signature" on `statuses/update`. Query values are already decoded
+ * by `HttpUrl`.
+ */
+internal fun signingParameters(request: Request): Map<String, String> {
+    val params = LinkedHashMap<String, String>()
+    for (name in request.url.queryParameterNames) {
+        val value = request.url.queryParameter(name) ?: continue
+        params[name] = value
+    }
+    (request.body as? FormBody)?.let { form ->
+        for (i in 0 until form.size) params[form.name(i)] = form.value(i)
+    }
+    return params
 }

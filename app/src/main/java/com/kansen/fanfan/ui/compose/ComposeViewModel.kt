@@ -97,13 +97,13 @@ class ComposeViewModel @Inject constructor(
     fun post() {
         val state = _uiState.value
         if (!state.canPublish) return
-        val text = state.text.trim()
         _uiState.update { it.copy(posting = true, error = null) }
         viewModelScope.launch {
             statusRepository.post(
-                text = text,
+                text = state.text,
                 inReplyToStatusId = inReplyToId,
                 repostStatusId = repostOfId,
+                repostAuthor = state.repostOf?.user?.screenName,
             )
                 .onSuccess {
                     draftRepository.clear(draftId)

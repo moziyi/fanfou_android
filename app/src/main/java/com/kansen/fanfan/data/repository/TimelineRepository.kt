@@ -15,9 +15,12 @@ enum class TimelineType(val key: String, val label: String) {
 }
 
 /**
- * Read path for timelines. Room is the single source of truth: refresh fetches
- * newer statuses (`since_id`) and loadMore fetches older ones (`max_id`); the
- * UI only observes the local table and is therefore offline-capable.
+ * Read path for timelines. Room is the single source of truth: a manual
+ * refresh pulls the newest full page (no `since_id` — moderated posts become
+ * visible minutes after their creation time, so an incremental fetch would
+ * miss them permanently; see [refresh]) and loadMore fetches older ones
+ * (`max_id`); the UI only observes the local table and is therefore
+ * offline-capable.
  */
 @Singleton
 class TimelineRepository @Inject constructor(
@@ -30,10 +33,16 @@ class TimelineRepository @Inject constructor(
     fun timeline(type: TimelineType): Flow<List<StatusUi>> =
         statusDao.timeline(type.key).map { rows -> attachReplyTargets(rows.map(StatusMapper::toUi)) }
 
-    /** Pull-to-refresh: fetch only statuses newer than the local newest id. */
+    /**
+     * Pull-to-refresh always fetches the full newest page instead of only
+     * `since_id` supplements. Content can become visible later than its
+     * creation time — fanfou releases moderated posts (`【审核中】`) minutes
+     * after posting, and those are invisible to every `since_id` refresh that
+     * runs in between, so they would never reach the cache (observed live
+     * 2026-10-20). A full page costs 30 items and repairs such gaps.
+     */
     suspend fun refresh(type: TimelineType): Result<Unit> = runCatching {
-        val sinceId = statusDao.newestId(type.key)
-        val page = fetch(type, sinceId = sinceId, maxId = null)
+        val page = fetch(type, sinceId = null, maxId = null)
         store.saveTimeline(page, type.key)
         store.trim(type.key)
         // After the trim: reply parents are bare rows, and an earlier prune

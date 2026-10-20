@@ -46,7 +46,11 @@ interface StatusesApi {
 
     /**
      * Publishes a status. Reply: set [inReplyToStatusId]. Repost: set
-     * [repostStatusId] (with optional comment in [status]).
+     * [repostStatusId].
+     *
+     * Live-verified 2026-10-19: unlike the wiki (`status` optional for
+     * reposts), the server rejects a blank `status` with 400; callers go
+     * through `StatusRepository.post`, which synthesizes the minimal text.
      */
     @FormUrlEncoded
     @POST("statuses/update.json")
@@ -56,4 +60,9 @@ interface StatusesApi {
         @Field("repost_status_id") repostStatusId: String? = null,
         @Field("location") location: String? = null,
     ): StatusDto
+
+    /** Deletes a status. Live-verified 2026-10-19: returns the destroyed status. */
+    @FormUrlEncoded
+    @POST("statuses/destroy.json")
+    suspend fun destroy(@Field("id") id: String): StatusDto
 }

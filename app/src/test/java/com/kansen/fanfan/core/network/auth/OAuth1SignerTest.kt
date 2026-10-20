@@ -214,4 +214,30 @@ class OAuth1SignerTest {
         // a=1%262 must sort before b=3%3D4 and be escaped itself
         assert(base.endsWith("a%3D1%25262%26b%3D3%253D4"))
     }
+
+    /**
+     * Regression, live-verified 2026-10-19. A publish of "test 20261019" failed
+     * with 401 "Invalid signature" whose body echoed the expected base string;
+     * the form-body parameter value must be the DECODED text (space → %20
+     * exactly once, so the joined param string shows %2520). Feeding the
+     * already-encoded body value produced %252520 and the mismatch.
+     */
+    @Test
+    fun `baseString for update with space in status matches live server expectation`() {
+        val base = OAuth1Signer.baseString(
+            method = "POST",
+            url = "https://api.fanfou.com/statuses/update.json",
+            allParameters = mapOf(
+                "status" to "test 20261019",
+                "oauth_consumer_key" to consumerKey,
+                "oauth_nonce" to "5596c7a613c0bd1156cefeb80c16ac13",
+                "oauth_signature_method" to "HMAC-SHA1",
+                "oauth_timestamp" to "1792412466",
+                "oauth_token" to "token-for-fixture",
+                "oauth_version" to "1.0",
+            ),
+        )
+        assert(base.endsWith("oauth_version%3D1.0%26status%3Dtest%252020261019"))
+        assert(!base.contains("%252520"))
+    }
 }
