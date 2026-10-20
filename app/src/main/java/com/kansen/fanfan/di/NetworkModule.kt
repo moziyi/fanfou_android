@@ -7,6 +7,7 @@ import com.kansen.fanfan.core.network.UserAgentInterceptor
 import com.kansen.fanfan.core.network.api.FanfouApi
 import com.kansen.fanfan.core.network.api.FavoritesApi
 import com.kansen.fanfan.core.network.api.StatusesApi
+import com.kansen.fanfan.core.network.api.UsersApi
 import com.kansen.fanfan.core.network.token.TokenCache
 import com.kansen.fanfan.core.common.JsonCodec
 import com.kansen.fanfan.BuildConfig
@@ -77,6 +78,10 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideFavoritesApi(retrofit: Retrofit): FavoritesApi = retrofit.create(FavoritesApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideUsersApi(retrofit: Retrofit): UsersApi = retrofit.create(UsersApi::class.java)
 
     @Provides
     @Singleton

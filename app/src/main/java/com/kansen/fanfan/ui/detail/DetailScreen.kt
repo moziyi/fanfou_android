@@ -43,6 +43,7 @@ fun DetailScreen(
     onBack: () -> Unit,
     onReply: (StatusUi) -> Unit,
     onOpenPhoto: (PhotoUi) -> Unit,
+    onOpenUser: (String) -> Unit,
     viewModel: DetailViewModel = hiltViewModel(),
 ) {
     val status by viewModel.status.collectAsStateWithLifecycle()
@@ -153,6 +154,7 @@ fun DetailScreen(
                             onRepost = { repostTarget = target },
                             onFavorite = { viewModel.toggleFavorite(target) },
                             onPhotoClick = onOpenPhoto,
+                            onUserClick = { target.user?.id?.let(onOpenUser) },
                             isContextTarget = true,
                         )
                         HorizontalDivider()
@@ -173,6 +175,7 @@ fun DetailScreen(
                                 onRepost = { repostTarget = threadStatus },
                                 onFavorite = { viewModel.toggleFavorite(threadStatus) },
                                 onPhotoClick = onOpenPhoto,
+                                onUserClick = { threadStatus.user?.id?.let(onOpenUser) },
                             )
                             HorizontalDivider()
                         }

@@ -60,6 +60,8 @@ fun StatusCard(
     onFavorite: () -> Unit,
     /** Opens the full-screen viewer; null keeps photos inert (e.g. inside the viewer itself). */
     onPhotoClick: ((PhotoUi) -> Unit)? = null,
+    /** Opens the author's profile; null keeps the avatar and name inert. */
+    onUserClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     showFavorite: Boolean = true,
     showActions: Boolean = true,
@@ -73,10 +75,10 @@ fun StatusCard(
         color = MaterialTheme.colorScheme.surface,
     ) {
         Row(modifier = Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp)) {
-            UserAvatar(status.user?.avatarUrl)
+            UserAvatar(status.user?.avatarUrl, onUserClick)
             Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f).padding(bottom = 4.dp)) {
-                AuthorRow(status)
+                AuthorRow(status, onUserClick)
                 if (status.isReply) ReplyLine(status.inReplyToScreenName)
 
                 if (status.text.isNotBlank()) {
@@ -125,14 +127,15 @@ fun StatusCard(
 }
 
 @Composable
-private fun UserAvatar(url: String?) {
+private fun UserAvatar(url: String?, onUserClick: (() -> Unit)?) {
     AsyncImage(
         model = url,
         contentDescription = null,
         modifier = Modifier
             .size(42.dp)
             .clip(RoundedCornerShape(21.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .then(if (onUserClick != null) Modifier.clickable(onClick = onUserClick) else Modifier),
         contentScale = ContentScale.Crop,
     )
 }
@@ -143,7 +146,7 @@ private fun UserAvatar(url: String?) {
  * "徒然草 @徒然草" does not appear twice.
  */
 @Composable
-private fun AuthorRow(status: StatusUi) {
+private fun AuthorRow(status: StatusUi, onUserClick: (() -> Unit)?) {
     val name = status.user?.name.orEmpty()
     val screenName = status.user?.screenName.orEmpty()
 
@@ -151,7 +154,12 @@ private fun AuthorRow(status: StatusUi) {
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .then(if (onUserClick != null) Modifier.clickable(onClick = onUserClick) else Modifier),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
                 text = name,
                 style = MaterialTheme.typography.titleSmall,

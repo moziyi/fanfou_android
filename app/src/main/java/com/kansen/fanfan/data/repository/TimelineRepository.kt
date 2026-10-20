@@ -12,6 +12,13 @@ import javax.inject.Singleton
 enum class TimelineType(val key: String, val label: String) {
     HOME("home", "首页"),
     PUBLIC("public", "随便看看"),
+    MENTIONS("mentions", "@我"),
+    ;
+
+    companion object {
+        /** Timelines offered as top tabs on the home screen. */
+        val feedTabs = listOf(HOME, PUBLIC)
+    }
 }
 
 /**
@@ -79,6 +86,7 @@ class TimelineRepository @Inject constructor(
     private suspend fun fetch(type: TimelineType, sinceId: String?, maxId: String?) = when (type) {
         TimelineType.HOME -> api.homeTimeline(sinceId = sinceId, maxId = maxId, count = PAGE_SIZE)
         TimelineType.PUBLIC -> api.publicTimeline(sinceId = sinceId, maxId = maxId, count = PAGE_SIZE)
+        TimelineType.MENTIONS -> api.mentions(sinceId = sinceId, maxId = maxId, count = PAGE_SIZE)
     }
 
     private companion object {

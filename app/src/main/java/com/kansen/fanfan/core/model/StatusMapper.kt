@@ -61,3 +61,23 @@ object StatusMapper {
 
     private fun String?.blankToNull(): String? = this?.takeIf { it.isNotBlank() }
 }
+
+/** Profile projection; unknown identity becomes a blank profile the UI rejects. */
+fun UserDto.toProfileUi(): UserProfileUi = UserProfileUi(
+    id = id.orEmpty(),
+    name = name?.takeIf(String::isNotBlank) ?: screen_name.orEmpty(),
+    screenName = screen_name.orEmpty(),
+    avatarUrl = profile_image_url_large?.takeIf(String::isNotBlank)
+        ?: profile_image_url?.takeIf(String::isNotBlank),
+    description = description?.takeIf(String::isNotBlank),
+    location = location?.takeIf(String::isNotBlank),
+    following = following ?: false,
+    // `notifications` means "the logged-in user has sent this user a follow
+    // request that is still open" (protected accounts need approval).
+    followRequested = notifications ?: false,
+    protected = protected ?: false,
+    followersCount = followers_count,
+    friendsCount = friends_count,
+    statusesCount = statuses_count,
+    favouritesCount = favourites_count,
+)

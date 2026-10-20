@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kansen.fanfan.core.common.userMessage
 import com.kansen.fanfan.core.model.StatusUi
+import com.kansen.fanfan.ui.components.FeedUiState
 import com.kansen.fanfan.data.repository.StatusRepository
 import com.kansen.fanfan.data.repository.TimelineRepository
 import com.kansen.fanfan.data.repository.TimelineType
@@ -17,17 +18,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
-data class TimelineUiState(
-    /** First load of a timeline: shows the centered spinner, never the pull indicator. */
-    val initialLoading: Boolean = false,
-    /** User-initiated pull: drives the pull-to-refresh indicator only. */
-    val refreshing: Boolean = false,
-    val loadingMore: Boolean = false,
-    val endReached: Boolean = false,
-    val initialLoaded: Boolean = false,
-    val error: String? = null,
-)
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -43,8 +33,8 @@ class TimelineViewModel @Inject constructor(
         .flatMapLatest { timelineRepository.timeline(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    private val _uiState = MutableStateFlow(TimelineUiState())
-    val uiState: StateFlow<TimelineUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(FeedUiState())
+    val uiState: StateFlow<FeedUiState> = _uiState.asStateFlow()
 
     init {
         refresh(initial = true)
@@ -53,7 +43,7 @@ class TimelineViewModel @Inject constructor(
     fun selectType(type: TimelineType) {
         if (_type.value == type) return
         _type.value = type
-        _uiState.value = TimelineUiState()
+        _uiState.value = FeedUiState()
         refresh(initial = true)
     }
 

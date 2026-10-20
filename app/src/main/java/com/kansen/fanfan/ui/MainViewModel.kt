@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kansen.fanfan.core.datastore.AuthSession
 import com.kansen.fanfan.data.repository.AuthRepository
+import com.kansen.fanfan.data.repository.MentionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -21,11 +22,16 @@ sealed interface MainUiState {
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val authRepository: AuthRepository,
+    mentionRepository: MentionRepository,
 ) : ViewModel() {
 
     val state: StateFlow<MainUiState> = authRepository.sessionFlow
         .map { session -> if (session == null) MainUiState.LoggedOut else MainUiState.LoggedIn(session) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, MainUiState.Loading)
+
+    /** Badge on the @我 tab: mentions newer than the local read watermark. */
+    val unreadMentions: StateFlow<Int> = mentionRepository.unreadCount
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     fun logout() {
         viewModelScope.launch { authRepository.logout() }

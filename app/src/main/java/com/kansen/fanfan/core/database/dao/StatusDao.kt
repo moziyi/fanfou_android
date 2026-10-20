@@ -37,6 +37,15 @@ interface StatusDao {
     @Query("SELECT statusId FROM timeline_entry WHERE timelineType = :timelineType ORDER BY rawid ASC LIMIT 1")
     suspend fun oldestId(timelineType: String): String?
 
+    @Query("SELECT MAX(rawid) FROM timeline_entry WHERE timelineType = :timelineType")
+    suspend fun maxRawid(timelineType: String): Long?
+
+    @Query("SELECT statusId FROM timeline_entry ORDER BY rawid DESC LIMIT 1")
+    suspend fun newestStatusId(): String?
+
+    @Query("SELECT COUNT(*) FROM timeline_entry WHERE timelineType = :timelineType AND rawid > :rawid")
+    fun unreadCount(timelineType: String, rawid: Long): Flow<Int>
+
     @Query("DELETE FROM timeline_entry WHERE statusId = :id")
     suspend fun deleteTimelineEntries(id: String)
 

@@ -58,6 +58,30 @@ data class UserUi(
 )
 
 /**
+ * Display model for a user page. Distinct from [UserUi] (author chip): the
+ * profile carries the relationship state and counters, which are only
+ * trustworthy for the fetch that returned them.
+ */
+data class UserProfileUi(
+    val id: String,
+    val name: String,
+    val screenName: String,
+    val avatarUrl: String?,
+    val description: String?,
+    val location: String?,
+    val following: Boolean,
+    /** A follow request is waiting for the other side to accept it. */
+    val followRequested: Boolean,
+    val protected: Boolean,
+    val followersCount: Int?,
+    val friendsCount: Int?,
+    val statusesCount: Int?,
+    val favouritesCount: Int?,
+) {
+    val hasProfile: Boolean get() = id.isNotBlank()
+}
+
+/**
  * Fanfou serves every photo off one Meituan S3 object, and the three fields only
  * differ by the processing directive appended to it (measured 2026-10-19 on a
  * 4000x3000 original):
