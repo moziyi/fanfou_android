@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -94,13 +95,17 @@ fun ComposeScreen(
                     }
                 },
                 actions = {
-                    if (state.posting) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.padding(end = 16.dp).height(20.dp),
-                            strokeWidth = 2.dp,
-                        )
-                    } else {
-                        TextButton(onClick = viewModel::post, enabled = state.canPublish) {
+                    // The button stays in place and shows what it is doing —
+                    // a spinner that replaces it looks like a glitch.
+                    TextButton(onClick = viewModel::post, enabled = state.canPublish) {
+                        if (state.posting) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("发布中")
+                        } else {
                             Text("发布")
                         }
                     }

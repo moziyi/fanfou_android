@@ -10,6 +10,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import com.kansen.fanfan.core.common.runCatchingCancellable
 import com.kansen.fanfan.core.network.dto.StatusDto
+import com.kansen.fanfan.core.model.TimelineReconciler
 
 enum class TimelineType(val key: String, val label: String) {
     HOME("home", "首页"),
@@ -53,6 +54,7 @@ class TimelineRepository @Inject constructor(
     suspend fun refresh(type: TimelineType): Result<Unit> = runCatchingCancellable {
         val page = fetch(type, sinceId = null, maxId = null)
         cachePage(type, page)
+        reconcileDeleted(type, page)
     }
 
     /** Returns true when older statuses were appended (false = end reached). */
@@ -77,6 +79,39 @@ class TimelineRepository @Inject constructor(
         store.saveTimeline(page, type.key)
         store.trim(type.key)
         replyTargets.warm(page)
+    }
+
+    /**
+     * Drops the entries of a timeline that the page proves are gone: a status
+     * that was deleted on the server (here or in the web client) would
+     * otherwise stay in the cache until it is pushed out of it.
+     *
+     * Only the entries of this timeline are touched, and only those that are
+     * newer than the oldest item of the page — the page says nothing about
+     * the older ones. A status that is missing from the page but was created
+     * recently is kept: fanfou holds new posts for a few minutes, and those
+     * are not in the timeline until they are released.
+     */
+    private suspend fun reconcileDeleted(type: TimelineType, page: List<StatusDto>) {
+        if (page.isEmpty()) return
+        val pageIds = page.mapNotNull { it.id }.toSet()
+        val minRawid = page.minOf { it.rawid ?: 0L }
+        val cached = statusDao.timelineEntries(type.key).map {
+            TimelineReconciler.CachedEntry(
+                id = it.statusId,
+                rawid = it.rawid,
+                createdAt = it.createdAtEpoch,
+            )
+        }
+        val stale = TimelineReconciler.staleIds(
+            cached = cached,
+            pageIds = pageIds,
+            minRawid = minRawid,
+            now = System.currentTimeMillis(),
+        )
+        if (stale.isEmpty()) return
+        statusDao.deleteTimelineEntriesOf(type.key, stale)
+        statusDao.pruneOrphans()
     }
 
     /**

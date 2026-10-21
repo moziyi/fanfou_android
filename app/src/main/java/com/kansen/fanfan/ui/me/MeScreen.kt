@@ -35,6 +35,14 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.kansen.fanfan.core.datastore.SelfUser
 import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.kansen.fanfan.BuildConfig
 
 @Composable
 fun MeScreen(
@@ -48,6 +56,8 @@ fun MeScreen(
     onLogout: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var showAbout by remember { mutableStateOf(false) }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -92,6 +102,7 @@ fun MeScreen(
 
         MeEntry(icon = Icons.Filled.Email, label = "私信", onClick = onOpenDirectMessages)
         MeEntry(icon = Icons.Filled.EditNote, label = "草稿箱", onClick = onOpenDrafts)
+        MeEntry(icon = Icons.Filled.Info, label = "关于", onClick = { showAbout = true })
 
         if (com.kansen.fanfan.BuildConfig.DEBUG) {
             MeEntry(icon = Icons.Filled.Notifications, label = "测试通知（Debug）", onClick = onTestNotification)
@@ -106,6 +117,10 @@ fun MeScreen(
         ) {
             Text("退出登录")
         }
+    }
+
+    if (showAbout) {
+        AboutDialog(onDismiss = { showAbout = false })
     }
 }
 
@@ -128,4 +143,30 @@ private fun MeEntry(icon: ImageVector, label: String, onClick: () -> Unit) {
         )
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+}
+
+@Composable
+private fun AboutDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("关于") },
+        text = {
+            Column {
+                Text("饭否 · 个人客户端", style = MaterialTheme.typography.bodyLarge)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "版本 ${BuildConfig.VERSION_NAME}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "数据来自饭否 API，版权归饭否及其用户所有。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("好") } },
+    )
 }

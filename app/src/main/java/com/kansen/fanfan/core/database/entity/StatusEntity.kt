@@ -49,3 +49,10 @@ data class StatusRow(
     @Embedded val status: StatusEntity,
     val favoritedOverride: Boolean?,
 )
+
+/** A timeline entry with the age of the status behind it. */
+data class TimelineEntryRow(
+    val statusId: String,
+    val rawid: Long,
+    val createdAtEpoch: Long,
+)

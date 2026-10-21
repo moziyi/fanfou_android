@@ -8,6 +8,7 @@ import com.kansen.fanfan.core.database.entity.StatusEntity
 import com.kansen.fanfan.core.database.entity.StatusRow
 import com.kansen.fanfan.core.database.entity.TimelineEntryEntity
 import kotlinx.coroutines.flow.Flow
+import com.kansen.fanfan.core.database.entity.TimelineEntryRow
 
 @Dao
 interface StatusDao {
@@ -109,6 +110,23 @@ interface StatusDao {
         """,
     )
     suspend fun pruneOrphans()
+
+    /**
+     * The entries of a timeline with the age of the status behind them, for
+     * the reconciliation of deleted statuses.
+     */
+    @Query(
+        """
+        SELECT e.statusId AS statusId, e.rawid AS rawid, s.createdAtEpoch AS createdAtEpoch
+        FROM timeline_entry e JOIN status s ON s.id = e.statusId
+        WHERE e.timelineType = :type
+        """,
+    )
+    suspend fun timelineEntries(type: String): List<TimelineEntryRow>
+
+    /** Removes the given entries of one timeline. */
+    @Query("DELETE FROM timeline_entry WHERE timelineType = :type AND statusId IN (:ids)")
+    suspend fun deleteTimelineEntriesOf(type: String, ids: List<String>)
 
     companion object {
         const val TIMELINE_LIMIT = 2000
