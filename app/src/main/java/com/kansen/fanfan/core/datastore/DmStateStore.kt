@@ -9,7 +9,6 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -20,10 +19,12 @@ private val Context.dmDataStore: DataStore<Preferences> by preferencesDataStore(
 /**
  * Unread direct-message state.
  *
- * The server marks a *conversation* as unread (`new_conv`), not individual
- * messages, so the badge counts conversations with unread messages. The value
- * is refreshed by the poll worker and whenever the conversation list is
- * opened, so the badge is right even if the tab was never opened.
+ * The server cannot tell us what *we* have not read (its `new_conv` flag
+ * reports the other side's read state), so the app keeps its own marker: the
+ * id of the last message seen in a conversation. The unread count is derived
+ * from those markers by [com.kansen.fanfan.core.model.DmUnread] and written
+ * back here for the 私信 tab badge; the poll worker and the conversation list
+ * use the same rule.
  */
 @Singleton
 class DmStateStore @Inject constructor(
@@ -70,8 +71,4 @@ class DmStateStore @Inject constructor(
             prefs[Keys.readMarkers] = json.encodeToString(current + (conversationId to messageId))
         }
     }
-
-    /** The message id the user has already seen in [conversationId]. */
-    suspend fun readMarker(conversationId: String): String? =
-        readMarkers.first()[conversationId]
 }

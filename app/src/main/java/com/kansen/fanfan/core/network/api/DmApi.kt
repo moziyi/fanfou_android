@@ -26,13 +26,16 @@ interface DmApi {
         @Query("mode") mode: String = "lite",
     ): List<DmConversationDto>
 
-    /** All messages exchanged with one user. */
+    /**
+     * Messages exchanged with one user, newest first. Paging with `page`
+     * yields strictly older messages (live-verified 2026-10-21); `max_id`
+     * would repeat the boundary message, so it is not used.
+     */
     @GET("direct_messages/conversation.json")
     suspend fun conversation(
         @Query("id") id: String,
         @Query("count") count: Int = 30,
         @Query("page") page: Int = 1,
-        @Query("max_id") maxId: String? = null,
         @Query("mode") mode: String = "lite",
     ): List<DmDto>
 

@@ -211,7 +211,10 @@ fun MainShell(
                 route = ROUTE_DM_CONVERSATION,
                 arguments = listOf(navArgument("userId") { type = NavType.StringType }),
             ) {
-                DmConversationScreen(onBack = { navController.popBackStack() })
+                DmConversationScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenUser = { id -> navController.navigate(userRoute(id)) },
+                )
             }
             composable(ROUTE_ME) {
                 MeScreen(

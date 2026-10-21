@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.kansen.fanfan.core.common.userMessage
 import com.kansen.fanfan.core.datastore.DmStateStore
 import com.kansen.fanfan.core.model.DmConversationUi
+import com.kansen.fanfan.core.model.DmUnread
 import com.kansen.fanfan.data.repository.DmRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +20,8 @@ data class DmListUiState(
     val items: List<DmConversationUi> = emptyList(),
     /** Conversation ids with a message the user has not seen yet. */
     val unreadIds: Set<String> = emptySet(),
+    /** The next page to request; 1 before the first load. */
+    val nextPage: Int = 1,
     val initialLoading: Boolean = false,
     val refreshing: Boolean = false,
     val loadingMore: Boolean = false,
@@ -55,17 +58,12 @@ class DmListViewModel @Inject constructor(
             runCatching { dmRepository.conversations(page = 1) }
                 .onSuccess { conversations ->
                     val markers = dmState.readMarkers.first()
-                    // Unread = the other side wrote last and we have not seen
-                    // that message yet. The server flag cannot answer this.
-                    val unread = conversations
-                        .filter { it.lastFromOther && it.lastMessageId.isNotBlank() }
-                        .filter { markers[it.otherId] != it.lastMessageId }
-                        .map { it.otherId }
-                        .toSet()
+                    val unread = DmUnread.evaluate(conversations, markers)
                     _uiState.update {
                         it.copy(
                             items = conversations,
                             unreadIds = unread,
+                            nextPage = 2,
                             initialLoading = false,
                             refreshing = false,
                             endReached = conversations.isEmpty(),
@@ -90,12 +88,13 @@ class DmListViewModel @Inject constructor(
         if (state.loadingMore || state.endReached || state.initialLoading || state.refreshing) return
         viewModelScope.launch {
             _uiState.update { it.copy(loadingMore = true) }
-            val nextPage = state.items.size / PAGE_SIZE + 1
+            val nextPage = state.nextPage
             runCatching { dmRepository.conversations(page = nextPage) }
                 .onSuccess { older ->
                     _uiState.update {
                         it.copy(
                             items = (it.items + older).distinctBy { c -> c.otherId },
+                            nextPage = nextPage + 1,
                             loadingMore = false,
                             endReached = older.isEmpty(),
                         )
@@ -107,11 +106,4 @@ class DmListViewModel @Inject constructor(
         }
     }
 
-    fun dismissError() {
-        _uiState.update { it.copy(error = null) }
-    }
-
-    private companion object {
-        const val PAGE_SIZE = 30
-    }
 }

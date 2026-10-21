@@ -39,7 +39,7 @@ class FanfanApp : Application(), SingletonImageLoader.Factory, Configuration.Pro
         super.onCreate()
         authWarmup.warm()
         MentionNotifications.ensureChannel(this)
-        scheduleMentionPolling()
+        schedulePoll()
     }
 
     /**
@@ -47,7 +47,7 @@ class FanfanApp : Application(), SingletonImageLoader.Factory, Configuration.Pro
      * Doze deferral; the on-device measurement decides whether an
      * `AlarmManager.setAndAllowWhileIdle` fallback is needed.
      */
-    private fun scheduleMentionPolling() {
+    private fun schedulePoll() {
         val request = PeriodicWorkRequestBuilder<FanfouPollWorker>(15, TimeUnit.MINUTES)
             .setConstraints(
                 Constraints.Builder()
@@ -55,9 +55,16 @@ class FanfanApp : Application(), SingletonImageLoader.Factory, Configuration.Pro
                     .build(),
             )
             .build()
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+        val workManager = WorkManager.getInstance(this)
+        // The worker class was renamed (MentionWorker -> FanfouPollWorker).
+        // A work item scheduled under the old name still points at the class
+        // that no longer exists: WorkManager cannot instantiate it and the
+        // poll stays dead after an app update. Cancel that leftover and
+        // enqueue under a fresh name.
+        workManager.cancelUniqueWork(LEGACY_WORK_NAME)
+        workManager.enqueueUniquePeriodicWork(
             WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.UPDATE,
             request,
         )
     }
@@ -70,6 +77,9 @@ class FanfanApp : Application(), SingletonImageLoader.Factory, Configuration.Pro
             .build()
 
     private companion object {
-        const val WORK_NAME = "mention-poll"
+        const val WORK_NAME = "fanfou-poll"
+
+        /** The unique name used before the worker was renamed. */
+        const val LEGACY_WORK_NAME = "mention-poll"
     }
 }

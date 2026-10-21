@@ -22,7 +22,10 @@ data class DmConversationUiState(
     val otherAvatarUrl: String? = null,
     val messages: List<DmUi> = emptyList(),
     val loading: Boolean = false,
+    val loadingMore: Boolean = false,
     val sending: Boolean = false,
+    /** No older messages are left to load. */
+    val endReached: Boolean = false,
     val error: String? = null,
 )
 
@@ -52,21 +55,22 @@ class DmConversationViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(loading = true, error = null) }
             runCatching { dmRepository.conversation(otherId = otherId, page = 1) }
-                .onSuccess { messages ->
+                .onSuccess { thread ->
                     _uiState.update {
                         it.copy(
-                            messages = messages.sortedBy { m -> m.createdAt },
+                            messages = thread.messages.sortedBy { m -> m.createdAt },
                             loading = false,
+                            endReached = thread.messages.size < PAGE_SIZE,
                         )
                     }
                     // Opening the thread marks it as read locally.
-                    messages.maxByOrNull { it.createdAt }?.let { newest ->
+                    thread.messages.maxByOrNull { it.createdAt }?.let { newest ->
                         dmState.markRead(otherId, newest.id)
                     }
                     // The title is the other side: the conversation payload
                     // carries both parties, and an empty thread has neither —
                     // then the profile is the only source.
-                    val peer = runCatching { dmRepository.peerOf(otherId) }.getOrNull()
+                    val peer = thread.peer
                     if (peer != null) {
                         _uiState.update {
                             it.copy(otherName = peer.name, otherAvatarUrl = peer.avatarUrl)
@@ -89,19 +93,33 @@ class DmConversationViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Loads the messages before the oldest one on screen. The list grows at
+     * the top, so the screen keeps the reading position.
+     */
     fun loadMore() {
         val state = _uiState.value
-        if (state.loading || state.sending || state.messages.isEmpty()) return
+        if (state.loading || state.loadingMore || state.sending) return
+        if (state.endReached || state.messages.isEmpty()) return
         viewModelScope.launch {
-            val oldest = state.messages.minByOrNull { it.createdAt }?.id ?: return@launch
-            runCatching { dmRepository.conversation(otherId = otherId, page = 1, maxId = oldest) }
-                .onSuccess { older ->
-                    val merged = (older + state.messages)
+            _uiState.update { it.copy(loadingMore = true) }
+            val nextPage = state.messages.size / PAGE_SIZE + 1
+            runCatching { dmRepository.conversation(otherId = otherId, page = nextPage) }
+                .onSuccess { thread ->
+                    val merged = (thread.messages + state.messages)
                         .distinctBy { it.id }
                         .sortedBy { it.createdAt }
-                    _uiState.update { it.copy(messages = merged) }
+                    _uiState.update {
+                        it.copy(
+                            messages = merged,
+                            loadingMore = false,
+                            endReached = thread.messages.size < PAGE_SIZE,
+                        )
+                    }
                 }
-                .onFailure { t -> _uiState.update { it.copy(error = t.userMessage()) } }
+                .onFailure { t ->
+                    _uiState.update { it.copy(loadingMore = false, error = t.userMessage()) }
+                }
         }
     }
 
@@ -114,8 +132,12 @@ class DmConversationViewModel @Inject constructor(
         if (trimmed.isEmpty() || _uiState.value.sending) return
         viewModelScope.launch {
             _uiState.update { it.copy(sending = true, error = null) }
-            val lastId = _uiState.value.messages.maxByOrNull { it.createdAt }?.id
-            runCatching { dmRepository.send(otherId = otherId, text = trimmed, inReplyToId = lastId) }
+            // Only a message from the other side can be replied to.
+            val replyTo = _uiState.value.messages
+                .maxByOrNull { it.createdAt }
+                ?.takeIf { !it.isMine }
+                ?.id
+            runCatching { dmRepository.send(otherId = otherId, text = trimmed, inReplyToId = replyTo) }
                 .onSuccess { sent ->
                     _uiState.update {
                         it.copy(
@@ -124,6 +146,7 @@ class DmConversationViewModel @Inject constructor(
                             sending = false,
                         )
                     }
+                    dmState.markRead(otherId, sent.id)
                     onSent()
                 }
                 .onFailure { t ->
@@ -132,7 +155,7 @@ class DmConversationViewModel @Inject constructor(
         }
     }
 
-    fun dismissError() {
-        _uiState.update { it.copy(error = null) }
+    private companion object {
+        const val PAGE_SIZE = 30
     }
 }

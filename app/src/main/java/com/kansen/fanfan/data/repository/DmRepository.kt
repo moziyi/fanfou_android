@@ -9,6 +9,12 @@ import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** One page of a conversation: the messages plus the other side. */
+data class DmThread(
+    val messages: List<DmUi>,
+    val peer: DmMapper.DmPeer?,
+)
+
 /**
  * Direct messages.
  *
@@ -27,18 +33,18 @@ class DmRepository @Inject constructor(
         return api.conversations(page = page).mapNotNull { DmMapper.toConversationUi(it, selfId) }
     }
 
-    suspend fun conversation(otherId: String, page: Int = 1, maxId: String? = null): List<DmUi> {
+    /**
+     * One page of a conversation. The API returns the messages newest first
+     * and paging with `page` yields strictly older ones (live-verified
+     * 2026-10-21); `max_id` would include the boundary message again.
+     */
+    suspend fun conversation(otherId: String, page: Int = 1): DmThread {
         val selfId = selfId()
-        return api.conversation(id = otherId, page = page, maxId = maxId)
-            .mapNotNull { DmMapper.toUi(it, selfId) }
-    }
-
-    /** Name and avatar of the other side, taken from the conversation itself. */
-    suspend fun peerOf(otherId: String): DmMapper.DmPeer? {
-        val selfId = selfId()
-        return api.conversation(id = otherId, count = 1, mode = "lite")
-            .firstOrNull()
-            ?.let { DmMapper.peer(it, selfId) }
+        val dtos = api.conversation(id = otherId, page = page)
+        return DmThread(
+            messages = dtos.mapNotNull { DmMapper.toUi(it, selfId) },
+            peer = dtos.firstOrNull()?.let { DmMapper.peer(it, selfId) },
+        )
     }
 
     suspend fun send(otherId: String, text: String, inReplyToId: String? = null): DmUi {

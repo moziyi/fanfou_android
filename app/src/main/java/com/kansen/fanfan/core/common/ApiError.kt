@@ -3,6 +3,7 @@ package com.kansen.fanfan.core.common
 import com.kansen.fanfan.core.network.dto.ApiErrorDto
 import kotlinx.serialization.json.Json
 import retrofit2.HttpException
+import java.io.IOException
 
 private val errorJson = Json {
     ignoreUnknownKeys = true
@@ -27,6 +28,9 @@ fun Throwable.userMessage(): String = when (this) {
         val body = runCatching { response()?.errorBody()?.string() }.getOrNull()
         parseApiError(body) ?: "请求失败 (HTTP ${code()})"
     }
+    // OkHttp reports connectivity problems as IOExceptions; their messages are
+    // English stack-ish text ("Unable to resolve host …"), useless in the UI.
+    is IOException -> "网络连接失败，请检查网络后重试"
     else -> message ?: "网络错误，请重试"
 }
 

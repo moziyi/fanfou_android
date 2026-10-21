@@ -18,6 +18,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -50,6 +52,13 @@ fun DmListScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
+    val snackbar = remember { SnackbarHostState() }
+
+    LaunchedEffect(state.error) {
+        // The error stays in the state: the empty list shows it as well, and
+        // the next refresh clears it.
+        state.error?.let { snackbar.showSnackbar(it) }
+    }
 
     // Coming back from a conversation must show the new read state.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
@@ -66,12 +75,13 @@ fun DmListScreen(
         if (shouldLoadMore) viewModel.loadMore()
     }
 
-    PullToRefreshBox(
-        isRefreshing = state.refreshing,
-        onRefresh = { viewModel.refresh() },
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        PullToRefreshBox(
+            isRefreshing = state.refreshing,
+            onRefresh = { viewModel.refresh() },
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
             if (state.initialLoading) {
                 item(key = "loading") {
                     Box(
@@ -128,7 +138,12 @@ fun DmListScreen(
                     }
                 }
             }
+            }
         }
+        SnackbarHost(
+            hostState = snackbar,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
     }
 }
 
