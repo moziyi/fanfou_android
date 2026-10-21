@@ -42,12 +42,26 @@ data class StatusUi(
         }
 
     /**
-     * A repost carries the original's photo, and the outer status usually has
-     * none of its own. Only used when the quote block is hidden — otherwise the
-     * photo would render twice, since the block shows it too.
+     * The photo shown with the body text.
+     *
+     * A repost of a status with a photo carries that photo **twice** in the
+     * payload — once at the top level and once inside the quoted original
+     * (measured 2026-10-21: both point at the same CDN object). The quote
+     * block already draws the original, so the body must not repeat it.
+     *
+     * A photo the user attached to the repost itself is a different object and
+     * stays visible next to the quote.
      */
     val bodyPhoto: PhotoUi?
-        get() = photo ?: if (showsRepostQuote) null else repost?.photo
+        get() {
+            val quoted = repost?.photo
+            val own = photo
+            if (own != null) {
+                if (showsRepostQuote && own.isSameObject(quoted)) return null
+                return own
+            }
+            return if (showsRepostQuote) null else quoted
+        }
 }
 
 data class UserUi(
@@ -116,6 +130,25 @@ data class PhotoUi(
 
     /** The bare object URL, i.e. the full-size original; not used by lists. */
     val originalUrl: String? get() = (largeUrl ?: imageUrl ?: thumbUrl)?.let(::cdnBase)
+
+    /**
+     * True when both photos point at the same file. The CDN variants differ
+     * only in their size directive (`...jpg@200w_200h_1l.jpg`), so the
+     * comparison ignores everything from the `@` on.
+     */
+    fun isSameObject(other: PhotoUi?): Boolean {
+        if (other == null) return false
+        val mine = objectKey(imageUrl ?: thumbUrl ?: largeUrl)
+        val theirs = objectKey(other.imageUrl ?: other.thumbUrl ?: other.largeUrl)
+        return mine != null && mine == theirs
+    }
+}
+
+/** The file behind a CDN variant: `.../x.jpg@596w_1l.jpg` → `.../x.jpg`. */
+private fun objectKey(url: String?): String? {
+    if (url.isNullOrBlank()) return null
+    val at = url.indexOf('@')
+    return if (at > 0) url.substring(0, at) else url
 }
 
 /** `.../x.jpg@596w_1l.jpg` → `.../x.jpg`; null when there is no such directive. */
