@@ -15,6 +15,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.kansen.fanfan.core.common.runCatchingCancellable
+import com.kansen.fanfan.core.network.api.DmApi
+import com.kansen.fanfan.data.repository.DmSendUnconfirmedException
 
 data class DmConversationUiState(
     val otherId: String = "",
@@ -24,6 +27,8 @@ data class DmConversationUiState(
     val loading: Boolean = false,
     val loadingMore: Boolean = false,
     val sending: Boolean = false,
+    /** The next page of older messages to request; 1 before the first load. */
+    val nextPage: Int = 1,
     /** No older messages are left to load. */
     val endReached: Boolean = false,
     val error: String? = null,
@@ -54,13 +59,14 @@ class DmConversationViewModel @Inject constructor(
         if (otherId.isBlank()) return
         viewModelScope.launch {
             _uiState.update { it.copy(loading = true, error = null) }
-            runCatching { dmRepository.conversation(otherId = otherId, page = 1) }
+            runCatchingCancellable { dmRepository.conversation(otherId = otherId, page = 1) }
                 .onSuccess { thread ->
                     _uiState.update {
                         it.copy(
                             messages = thread.messages.sortedBy { m -> m.createdAt },
                             loading = false,
-                            endReached = thread.messages.size < PAGE_SIZE,
+                            nextPage = 2,
+                            endReached = thread.messages.size < DmApi.PAGE_SIZE,
                         )
                     }
                     // Opening the thread marks it as read locally.
@@ -102,9 +108,12 @@ class DmConversationViewModel @Inject constructor(
         if (state.loading || state.loadingMore || state.sending) return
         if (state.endReached || state.messages.isEmpty()) return
         viewModelScope.launch {
-            _uiState.update { it.copy(loadingMore = true) }
-            val nextPage = state.messages.size / PAGE_SIZE + 1
-            runCatching { dmRepository.conversation(otherId = otherId, page = nextPage) }
+            _uiState.update { it.copy(loadingMore = true, error = null) }
+            // The page number is counted, never derived from the message count:
+            // a message that arrives while the user reads shifts the server's
+            // offsets, and a derived page would fetch the same page again.
+            val nextPage = state.nextPage
+            runCatchingCancellable { dmRepository.conversation(otherId = otherId, page = nextPage) }
                 .onSuccess { thread ->
                     val merged = (thread.messages + state.messages)
                         .distinctBy { it.id }
@@ -113,7 +122,8 @@ class DmConversationViewModel @Inject constructor(
                         it.copy(
                             messages = merged,
                             loadingMore = false,
-                            endReached = thread.messages.size < PAGE_SIZE,
+                            nextPage = nextPage + 1,
+                            endReached = thread.messages.size < DmApi.PAGE_SIZE,
                         )
                     }
                 }
@@ -137,25 +147,25 @@ class DmConversationViewModel @Inject constructor(
                 .maxByOrNull { it.createdAt }
                 ?.takeIf { !it.isMine }
                 ?.id
-            runCatching { dmRepository.send(otherId = otherId, text = trimmed, inReplyToId = replyTo) }
-                .onSuccess { sent ->
-                    _uiState.update {
-                        it.copy(
-                            messages = (it.messages + sent).distinctBy { m -> m.id }
-                                .sortedBy { m -> m.createdAt },
-                            sending = false,
-                        )
-                    }
-                    dmState.markRead(otherId, sent.id)
-                    onSent()
+            runCatchingCancellable {
+                dmRepository.send(otherId = otherId, text = trimmed, inReplyToId = replyTo)
+            }.onSuccess { sent ->
+                _uiState.update {
+                    it.copy(
+                        messages = (it.messages + sent).distinctBy { m -> m.id }
+                            .sortedBy { m -> m.createdAt },
+                        sending = false,
+                    )
                 }
-                .onFailure { t ->
-                    _uiState.update { it.copy(sending = false, error = t.userMessage()) }
-                }
+                dmState.markRead(otherId, sent.id)
+                onSent()
+            }.onFailure { t ->
+                _uiState.update { it.copy(sending = false, error = t.userMessage()) }
+                // The message reached the server but the answer was unreadable:
+                // keeping the text would invite a duplicate.
+                if (t is DmSendUnconfirmedException) onSent()
+            }
         }
     }
 
-    private companion object {
-        const val PAGE_SIZE = 30
-    }
 }

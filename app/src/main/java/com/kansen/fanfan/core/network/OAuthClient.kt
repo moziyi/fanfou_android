@@ -9,6 +9,7 @@ import okhttp3.Request
 import java.security.SecureRandom
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.kansen.fanfan.core.common.runCatchingCancellable
 
 /** Tokens returned by the fanfou oauth endpoints. */
 data class OAuthTokens(val token: String, val tokenSecret: String)
@@ -28,7 +29,7 @@ class OAuthClient @Inject constructor(
 
     suspend fun xAuthAccessToken(username: String, password: String): Result<OAuthTokens> =
         withContext(Dispatchers.IO) {
-            runCatching {
+            runCatchingCancellable {
                 val header = OAuth1Signer.authorizationHeader(
                     method = "GET",
                     url = ACCESS_TOKEN_URL,

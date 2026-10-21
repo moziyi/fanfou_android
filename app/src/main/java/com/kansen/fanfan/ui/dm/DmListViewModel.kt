@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.kansen.fanfan.core.common.runCatchingCancellable
 
 data class DmListUiState(
     val items: List<DmConversationUi> = emptyList(),
@@ -55,7 +56,7 @@ class DmListViewModel @Inject constructor(
                 if (initial) it.copy(initialLoading = true, error = null)
                 else it.copy(refreshing = true, error = null)
             }
-            runCatching { dmRepository.conversations(page = 1) }
+            runCatchingCancellable { dmRepository.conversations(page = 1) }
                 .onSuccess { conversations ->
                     val markers = dmState.readMarkers.first()
                     val unread = DmUnread.evaluate(conversations, markers)
@@ -87,9 +88,9 @@ class DmListViewModel @Inject constructor(
         val state = _uiState.value
         if (state.loadingMore || state.endReached || state.initialLoading || state.refreshing) return
         viewModelScope.launch {
-            _uiState.update { it.copy(loadingMore = true) }
+            _uiState.update { it.copy(loadingMore = true, error = null) }
             val nextPage = state.nextPage
-            runCatching { dmRepository.conversations(page = nextPage) }
+            runCatchingCancellable { dmRepository.conversations(page = nextPage) }
                 .onSuccess { older ->
                     _uiState.update {
                         it.copy(

@@ -45,6 +45,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kansen.fanfan.core.model.DmUi
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.TextButton
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.Lifecycle
 
 /** Direct messages are limited to 140 characters, same as a status. */
 private const val MAX_LENGTH = 140
@@ -70,6 +74,27 @@ fun DmConversationScreen(
     // its position when the list grows at the top.
     var anchor by remember { mutableStateOf<Pair<String, Int>?>(null) }
 
+    // New messages that arrived while the user was away (e.g. on the profile
+    // page) are appended; the reading position is kept unless the user was
+    // already at the bottom.
+    val nearBottom by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+            info.totalItemsCount == 0 || last >= info.totalItemsCount - 2
+        }
+    }
+    var scrollToBottom by remember { mutableStateOf(true) }
+    var resumedOnce by remember { mutableStateOf(false) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (resumedOnce) {
+            scrollToBottom = nearBottom
+            viewModel.load()
+        } else {
+            resumedOnce = true
+        }
+    }
+
     LaunchedEffect(state.error) {
         // The error stays in the state: an empty thread shows it as well, and
         // the next attempt clears it.
@@ -82,7 +107,7 @@ fun DmConversationScreen(
             // Older messages were prepended: keep the reading position.
             val index = state.messages.indexOfFirst { it.id == restore.first }
             if (index >= 0) listState.scrollToItem(index, restore.second)
-        } else if (state.messages.isNotEmpty()) {
+        } else if (state.messages.isNotEmpty() && scrollToBottom) {
             listState.scrollToItem(state.messages.lastIndex)
         }
     }
@@ -96,7 +121,9 @@ fun DmConversationScreen(
     val shouldLoadMore by remember {
         derivedStateOf {
             val first = listState.layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: 0
-            state.messages.size > PAGE_SIZE && first <= 2
+            // The view model knows whether older messages are left; the screen
+            // must not keep its own page size to decide.
+            !state.endReached && state.messages.isNotEmpty() && first <= 2
         }
     }
     LaunchedEffect(shouldLoadMore) {
@@ -160,7 +187,10 @@ fun DmConversationScreen(
                     )
                     IconButton(
                         onClick = {
-                            viewModel.send(input) { input = "" }
+                            viewModel.send(input) {
+                                input = ""
+                                scrollToBottom = true
+                            }
                         },
                         enabled = input.isNotBlank() && !state.sending,
                     ) {
@@ -197,19 +227,31 @@ fun DmConversationScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        text = if (state.error == null) "还没有消息" else "",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    val error = state.error
+                    if (error == null) {
+                        Text(
+                            text = "还没有消息",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        // The reason stays on screen: a snackbar disappears
+                        // after a few seconds and leaves an empty screen.
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = error,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 32.dp),
+                            )
+                            TextButton(onClick = { viewModel.load() }) { Text("重试") }
+                        }
+                    }
                 }
 
                 else -> LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                        horizontal = 12.dp,
-                        vertical = 12.dp,
-                    ),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     if (state.loadingMore) {
@@ -266,4 +308,3 @@ private fun DmBubble(message: DmUi) {
     }
 }
 
-private const val PAGE_SIZE = 30

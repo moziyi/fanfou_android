@@ -18,10 +18,19 @@ import retrofit2.http.Query
  */
 interface DmApi {
 
+    companion object {
+        /**
+         * Items per page. Paging is offset based, so the page size has to be
+         * the same everywhere: the repository, the view models and the
+         * "end of list" check all derive from it.
+         */
+        const val PAGE_SIZE = 30
+    }
+
     /** One row per conversation, newest message first. */
     @GET("direct_messages/conversation_list.json")
     suspend fun conversations(
-        @Query("count") count: Int = 30,
+        @Query("count") count: Int = PAGE_SIZE,
         @Query("page") page: Int = 1,
         @Query("mode") mode: String = "lite",
     ): List<DmConversationDto>
@@ -34,7 +43,7 @@ interface DmApi {
     @GET("direct_messages/conversation.json")
     suspend fun conversation(
         @Query("id") id: String,
-        @Query("count") count: Int = 30,
+        @Query("count") count: Int = PAGE_SIZE,
         @Query("page") page: Int = 1,
         @Query("mode") mode: String = "lite",
     ): List<DmDto>

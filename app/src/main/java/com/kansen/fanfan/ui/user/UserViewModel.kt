@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.kansen.fanfan.core.common.runCatchingCancellable
 
 /** One paged people list (friends or followers). */
 data class PeoplePage(
@@ -151,7 +152,7 @@ class UserViewModel @Inject constructor(
         _uiState.update { it.copy(statusesLoading = true) }
         val maxId = state.statuses.lastOrNull()?.id
         viewModelScope.launch {
-            runCatching { statusesApi.userTimeline(id = userId, maxId = maxId, count = PAGE_SIZE) }
+            runCatchingCancellable { statusesApi.userTimeline(id = userId, maxId = maxId, count = PAGE_SIZE) }
                 .onSuccess { page ->
                     val mapped = page.map { it.toUi() }
                     _uiState.update {

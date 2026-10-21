@@ -11,11 +11,13 @@ import com.kansen.fanfan.core.model.DmMapper
 import com.kansen.fanfan.core.model.DmUnread
 import com.kansen.fanfan.core.network.api.DmApi
 import com.kansen.fanfan.core.network.api.StatusesApi
-import com.kansen.fanfan.data.repository.StatusStore
 import com.kansen.fanfan.data.repository.TimelineType
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
+import com.kansen.fanfan.core.common.runCatchingCancellable
+import com.kansen.fanfan.core.model.DmConversationUi
+import com.kansen.fanfan.data.repository.TimelineRepository
 
 /**
  * Polls the account every 15 minutes (WorkManager's minimum):
@@ -39,7 +41,7 @@ class FanfouPollWorker @AssistedInject constructor(
     private val api: StatusesApi,
     private val tokenStore: TokenStore,
     private val state: MentionStateStore,
-    private val store: StatusStore,
+    private val timelineRepository: TimelineRepository,
     private val dmApi: DmApi,
     private val dmState: DmStateStore,
 ) : CoroutineWorker(appContext, params) {
@@ -48,7 +50,7 @@ class FanfouPollWorker @AssistedInject constructor(
         val session = tokenStore.session.first() ?: return Result.success()
         if (session.token.isNullOrBlank()) return Result.success()
 
-        val mentions = runCatching { api.mentions(count = PAGE_SIZE) }
+        val mentions = runCatchingCancellable { api.mentions(count = PAGE_SIZE) }
         mentions.onSuccess { page ->
             val newest = MentionRules.newestRawid(page)
             val notifiedUpTo = state.notifiedUpTo.first()
@@ -57,10 +59,10 @@ class FanfouPollWorker @AssistedInject constructor(
             // the @我 tab is meaningful even when the tab was never opened.
             // This does not count as reading: the read watermark only moves
             // when the user opens the tab.
-            if (page.isNotEmpty()) {
-                store.saveTimeline(page, TimelineType.MENTIONS.key)
-                store.trim(TimelineType.MENTIONS.key)
-            }
+            // The same write path the repository uses, so the reply parents of
+            // the cached page are fetched as well (a reply without its parent
+            // renders without the quoted block).
+            runCatchingCancellable { timelineRepository.cachePage(TimelineType.MENTIONS, page) }
 
             // First run: treat everything already on the server as seen,
             // otherwise installing the app would fire a notification for
@@ -89,9 +91,20 @@ class FanfouPollWorker @AssistedInject constructor(
      */
     private suspend fun refreshUnreadConversations() {
         val selfId = tokenStore.session.first()?.user?.id.orEmpty()
-        runCatching {
-            dmApi.conversations(count = DM_PAGE_SIZE)
-                .mapNotNull { DmMapper.toConversationUi(it, selfId) }
+        runCatchingCancellable {
+            // The badge counts all conversations, so every page is fetched —
+            // a user with more than one page of conversations would otherwise
+            // see a badge that is too low.
+            var page = 1
+            val all = mutableListOf<DmConversationUi>()
+            while (page <= MAX_CONVERSATION_PAGES) {
+                val chunk = dmApi.conversations(count = DmApi.PAGE_SIZE, page = page)
+                    .mapNotNull { DmMapper.toConversationUi(it, selfId) }
+                all += chunk
+                if (chunk.size < DmApi.PAGE_SIZE) break
+                page++
+            }
+            all
         }.onSuccess { conversations ->
             val markers = dmState.readMarkers.first()
             dmState.setUnreadConversations(DmUnread.evaluate(conversations, markers).size)
@@ -100,6 +113,8 @@ class FanfouPollWorker @AssistedInject constructor(
 
     private companion object {
         const val PAGE_SIZE = 20
-        const val DM_PAGE_SIZE = 30
+
+        /** Upper bound for the conversation pages the badge counts. */
+        const val MAX_CONVERSATION_PAGES = 3
     }
 }

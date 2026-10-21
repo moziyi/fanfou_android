@@ -8,6 +8,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.kansen.fanfan.core.common.runCatchingCancellable
 
 /**
  * Fetches the statuses a page's replies answer. Fanfou's timeline payload only
@@ -35,7 +36,7 @@ class ReplyTargetResolver @Inject constructor(
 
         val fetched = missing.chunked(MAX_PARALLEL).flatMap { chunk ->
             coroutineScope {
-                chunk.map { id -> async { runCatching { api.show(id) }.getOrNull() } }.awaitAll()
+                chunk.map { id -> async { runCatchingCancellable { api.show(id) }.getOrNull() } }.awaitAll()
             }
         }.filterNotNull()
 

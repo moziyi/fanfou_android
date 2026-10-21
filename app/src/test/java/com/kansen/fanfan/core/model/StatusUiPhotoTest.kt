@@ -99,6 +99,22 @@ class StatusUiPhotoTest {
     }
 
     @Test
+    fun `a reply with the same photo as the quoted parent shows it once`() {
+        val parent = status(
+            text = "原帖",
+            photo = photo("200w_200h_1l.jpg"),
+            repost = null,
+        )
+        val reply = status(
+            text = "回复",
+            photo = photo("200w_200h_1l.jpg"),
+            repost = null,
+        ).copy(replied = parent)
+
+        assertNull(reply.bodyPhoto)
+    }
+
+    @Test
     fun `photos of different objects are not the same`() {
         val other = photo("200w_200h_1l.jpg").copy(
             thumbUrl = "https://s3-img.meituan.net/v1/xxx/ff/n0/0p/dj/other.jpg@120w_120h_1l.jpg",

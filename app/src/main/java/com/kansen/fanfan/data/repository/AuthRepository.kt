@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.kansen.fanfan.core.common.runCatchingCancellable
 
 /**
  * Owns authentication. xAuth path: username+password → access token in one
@@ -35,7 +36,7 @@ class AuthRepository @Inject constructor(
         // navigates to Home even when verify_credentials fails — the user sees
         // a "successful" login with a token that cannot call the API.
         tokenCache.update(tokens.token, tokens.tokenSecret)
-        return runCatching {
+        return runCatchingCancellable {
             val user = api.verifyCredentials()
             val id = user.id ?: error("verify_credentials 未返回用户 id")
             val screenName = user.screen_name ?: user.name ?: id

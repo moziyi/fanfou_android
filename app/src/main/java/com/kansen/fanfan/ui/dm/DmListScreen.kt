@@ -82,63 +82,63 @@ fun DmListScreen(
             modifier = Modifier.fillMaxSize(),
         ) {
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-            if (state.initialLoading) {
-                item(key = "loading") {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 48.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                if (state.initialLoading) {
+                    item(key = "loading") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 48.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                        }
                     }
-                }
-            } else if (state.items.isEmpty()) {
-                item(key = "empty") {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 48.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = state.error ?: "还没有私信",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            } else {
-                items(state.items, key = { it.otherId }) { conversation ->
-                    DmConversationRow(
-                        conversation = conversation,
-                        unread = conversation.otherId in state.unreadIds,
-                        onClick = { onOpenConversation(conversation) },
-                    )
-                    HorizontalDivider()
-                }
-                item(key = "footer") {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 16.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (state.loadingMore) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                            )
-                        } else if (state.endReached && state.items.isNotEmpty()) {
+                } else if (state.items.isEmpty()) {
+                    item(key = "empty") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 48.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
                             Text(
-                                text = "没有更多了",
-                                style = MaterialTheme.typography.labelSmall,
+                                text = state.error ?: "还没有私信",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
+                } else {
+                    items(state.items, key = { it.otherId }) { conversation ->
+                        DmConversationRow(
+                            conversation = conversation,
+                            unread = conversation.otherId in state.unreadIds,
+                            onClick = { onOpenConversation(conversation) },
+                        )
+                        HorizontalDivider()
+                    }
+                    item(key = "footer") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 16.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (state.loadingMore) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            } else if (state.endReached && state.items.isNotEmpty()) {
+                                Text(
+                                    text = "没有更多了",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
                 }
-            }
-            }
+                }
         }
         SnackbarHost(
             hostState = snackbar,

@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.kansen.fanfan.core.common.runCatchingCancellable
 
 /**
  * Write path: publish / reply / repost / favorite / delete. Network first, then
@@ -34,7 +35,7 @@ class StatusRepository @Inject constructor(
         inReplyToStatusId: String? = null,
         repostStatusId: String? = null,
         repostAuthor: String? = null,
-    ): Result<StatusUi> = runCatching {
+    ): Result<StatusUi> = runCatchingCancellable {
         // Live-verified 2026-10-19: statuses/update rejects a repost whose
         // status text is empty with 400 信息发送失败, although the wiki says the
         // comment is optional. Synthesize the minimal valid text here so every
@@ -56,7 +57,7 @@ class StatusRepository @Inject constructor(
     }
 
     /** Flips the favorite state and records it in the local overlay table. */
-    suspend fun toggleFavorite(status: StatusUi): Result<Boolean> = runCatching {
+    suspend fun toggleFavorite(status: StatusUi): Result<Boolean> = runCatchingCancellable {
         val target = !status.favorited
         val dto = if (target) favoritesApi.create(status.id) else favoritesApi.destroy(status.id)
         val effective = dto.favorited ?: target
@@ -74,7 +75,7 @@ class StatusRepository @Inject constructor(
      * the user leaves the screen mid-flight, cancelling the coroutine must not
      * leave the cache pointing at a status the server no longer has.
      */
-    suspend fun delete(statusId: String): Result<Unit> = runCatching {
+    suspend fun delete(statusId: String): Result<Unit> = runCatchingCancellable {
         statusesApi.destroy(statusId)
         withContext(NonCancellable) {
             db.withTransaction {
@@ -89,13 +90,13 @@ class StatusRepository @Inject constructor(
         statusDao.statusFlow(id).map { row -> row?.let(StatusMapper::toUi) }
 
     /** Refreshes one status from the server into the local cache. */
-    suspend fun refreshStatus(id: String): Result<Unit> = runCatching {
+    suspend fun refreshStatus(id: String): Result<Unit> = runCatchingCancellable {
         val dto = statusesApi.show(id)
         store.saveBare(listOf(dto))
     }
 
     /** Thread context around a status, newest first, as display models. */
-    suspend fun context(id: String): Result<List<StatusUi>> = runCatching {
+    suspend fun context(id: String): Result<List<StatusUi>> = runCatchingCancellable {
         val statuses = statusesApi.contextTimeline(id)
         store.saveBare(statuses)
         statuses.map { it.toUi() }.sortedBy { it.rawid }

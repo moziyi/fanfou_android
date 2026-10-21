@@ -16,6 +16,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import com.kansen.fanfan.core.common.runCatchingCancellable
 
 /**
  * Saves a photo's original bytes into `Download/Fanfan`.
@@ -51,7 +52,7 @@ class ImageDownloader @Inject constructor(
             Result.success(publish(target))
         } catch (e: Exception) {
             // A pending row that never publishes would linger invisibly.
-            runCatching { context.contentResolver.delete(target, null, null) }
+            runCatchingCancellable { context.contentResolver.delete(target, null, null) }
             Result.failure(e)
         }
     }

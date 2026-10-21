@@ -58,6 +58,9 @@ data class StatusUi(
             val own = photo
             if (own != null) {
                 if (showsRepostQuote && own.isSameObject(quoted)) return null
+                // A reply quotes its parent, and the parent may carry the very
+                // image the reply attached.
+                if (replied != null && own.isSameObject(replied.photo)) return null
                 return own
             }
             return if (showsRepostQuote) null else quoted

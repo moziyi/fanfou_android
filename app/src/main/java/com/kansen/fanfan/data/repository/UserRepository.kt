@@ -8,6 +8,7 @@ import com.kansen.fanfan.core.network.api.UsersApi
 import com.kansen.fanfan.core.network.dto.UserDto
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.kansen.fanfan.core.common.runCatchingCancellable
 
 /**
  * Read path for user pages and relationship lists. Profiles are deliberately
@@ -21,26 +22,26 @@ class UserRepository @Inject constructor(
     private val userDao: UserDao,
 ) {
 
-    suspend fun profile(id: String): Result<UserProfileUi> = runCatching {
+    suspend fun profile(id: String): Result<UserProfileUi> = runCatchingCancellable {
         api.show(id).toProfileUi()
     }
 
-    suspend fun cachedProfile(id: String): UserProfileUi? = runCatching {
+    suspend fun cachedProfile(id: String): UserProfileUi? = runCatchingCancellable {
         userDao.byId(id)?.let { entity ->
             JsonCodec.json.decodeFromString<UserDto>(entity.rawJson).toProfileUi()
         }
     }.getOrNull()
 
-    suspend fun friends(id: String?, page: Int): Result<List<UserProfileUi>> = runCatching {
+    suspend fun friends(id: String?, page: Int): Result<List<UserProfileUi>> = runCatchingCancellable {
         api.friends(id = id, page = page).map { it.toProfileUi() }
     }
 
-    suspend fun followers(id: String?, page: Int): Result<List<UserProfileUi>> = runCatching {
+    suspend fun followers(id: String?, page: Int): Result<List<UserProfileUi>> = runCatchingCancellable {
         api.followers(id = id, page = page).map { it.toProfileUi() }
     }
 
     /** Follow/unfollow; the response carries the new `following` state. */
-    suspend fun setFollowing(id: String, follow: Boolean): Result<UserProfileUi> = runCatching {
+    suspend fun setFollowing(id: String, follow: Boolean): Result<UserProfileUi> = runCatchingCancellable {
         val dto = if (follow) api.follow(id) else api.unfollow(id)
         dto.toProfileUi()
     }

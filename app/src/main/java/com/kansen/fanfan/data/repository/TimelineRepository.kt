@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.kansen.fanfan.core.common.runCatchingCancellable
+import com.kansen.fanfan.core.network.dto.StatusDto
 
 enum class TimelineType(val key: String, val label: String) {
     HOME("home", "首页"),
@@ -48,24 +50,33 @@ class TimelineRepository @Inject constructor(
      * runs in between, so they would never reach the cache (observed live
      * 2026-10-20). A full page costs 30 items and repairs such gaps.
      */
-    suspend fun refresh(type: TimelineType): Result<Unit> = runCatching {
+    suspend fun refresh(type: TimelineType): Result<Unit> = runCatchingCancellable {
         val page = fetch(type, sinceId = null, maxId = null)
-        store.saveTimeline(page, type.key)
-        store.trim(type.key)
-        // After the trim: reply parents are bare rows, and an earlier prune
-        // would collect them before they are ever read.
-        replyTargets.warm(page)
+        cachePage(type, page)
     }
 
     /** Returns true when older statuses were appended (false = end reached). */
-    suspend fun loadMore(type: TimelineType): Result<Boolean> = runCatching {
-        val oldestId = statusDao.oldestId(type.key) ?: return@runCatching false
+    suspend fun loadMore(type: TimelineType): Result<Boolean> = runCatchingCancellable {
+        val oldestId = statusDao.oldestId(type.key) ?: return@runCatchingCancellable false
         val page = fetch(type, sinceId = null, maxId = oldestId)
-        if (page.isEmpty()) return@runCatching false
+        if (page.isEmpty()) return@runCatchingCancellable false
+        cachePage(type, page)
+        true
+    }
+
+    /**
+     * The single write path into the timeline cache: store the page, trim the
+     * timeline and warm the reply parents.
+     *
+     * The poll worker caches pages too, and it must not take a shortcut: the
+     * reply parents are bare rows, so they are only fetched *after* the trim
+     * (an earlier prune would collect them before they were ever read).
+     */
+    suspend fun cachePage(type: TimelineType, page: List<StatusDto>) {
+        if (page.isEmpty()) return
         store.saveTimeline(page, type.key)
         store.trim(type.key)
         replyTargets.warm(page)
-        true
     }
 
     /**

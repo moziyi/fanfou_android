@@ -30,7 +30,8 @@ class DmRepository @Inject constructor(
 
     suspend fun conversations(page: Int = 1): List<DmConversationUi> {
         val selfId = selfId()
-        return api.conversations(page = page).mapNotNull { DmMapper.toConversationUi(it, selfId) }
+        return api.conversations(count = DmApi.PAGE_SIZE, page = page)
+            .mapNotNull { DmMapper.toConversationUi(it, selfId) }
     }
 
     /**
@@ -40,7 +41,7 @@ class DmRepository @Inject constructor(
      */
     suspend fun conversation(otherId: String, page: Int = 1): DmThread {
         val selfId = selfId()
-        val dtos = api.conversation(id = otherId, page = page)
+        val dtos = api.conversation(id = otherId, count = DmApi.PAGE_SIZE, page = page)
         return DmThread(
             messages = dtos.mapNotNull { DmMapper.toUi(it, selfId) },
             peer = dtos.firstOrNull()?.let { DmMapper.peer(it, selfId) },
@@ -51,8 +52,15 @@ class DmRepository @Inject constructor(
         val selfId = selfId()
         val sent = api.send(user = otherId, text = text, inReplyToId = inReplyToId)
         return DmMapper.toUi(sent, selfId)
-            ?: error("发送成功但返回内容无法解析")
+            ?: throw DmSendUnconfirmedException()
     }
 
     private suspend fun selfId(): String = tokenStore.session.first()?.user?.id.orEmpty()
 }
+
+/**
+ * The server accepted the message but the answer could not be read. The
+ * message *was* delivered, so the caller must not offer a blind resend.
+ */
+class DmSendUnconfirmedException :
+    RuntimeException("消息已发送，但未能确认内容，请打开会话查看")
