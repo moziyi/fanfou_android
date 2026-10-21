@@ -49,6 +49,8 @@ import com.kansen.fanfan.ui.me.MeScreen
 import com.kansen.fanfan.ui.mentions.MentionsScreen
 import com.kansen.fanfan.ui.timeline.TimelineScreen
 import com.kansen.fanfan.ui.user.UserScreen
+import com.kansen.fanfan.core.model.DraftKind
+import com.kansen.fanfan.ui.drafts.DraftsScreen
 
 private const val ROUTE_TIMELINE = "timeline"
 private const val ROUTE_MENTIONS = "mentions"
@@ -58,6 +60,7 @@ private const val ROUTE_ME = "me"
 private const val ROUTE_DETAIL = "detail/{id}"
 private const val ROUTE_COMPOSE = "compose?inReplyTo={inReplyTo}&repostOf={repostOf}"
 private const val ROUTE_USER = "user/{id}?tab={tab}"
+private const val ROUTE_DRAFTS = "drafts"
 
 private data class BottomTab(val route: String, val label: String, val icon: ImageVector)
 
@@ -222,6 +225,7 @@ fun MainShell(
                     onOpenProfile = { navController.navigate(userRoute(user.id)) },
                     onOpenFriends = { navController.navigate(userRoute(user.id, tab = 1)) },
                     onOpenFollowers = { navController.navigate(userRoute(user.id, tab = 2)) },
+                    onOpenDrafts = { navController.navigate(ROUTE_DRAFTS) },
                     onOpenDirectMessages = {
                         navController.navigate(ROUTE_DM) {
                             popUpTo(navController.graph.findStartDestination().id) { saveState = true }
@@ -231,6 +235,22 @@ fun MainShell(
                     },
                     onTestNotification = { testNotification?.invoke() },
                     onLogout = onLogout,
+                )
+            }
+
+            composable(ROUTE_DRAFTS) {
+                DraftsScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenDraft = { draft ->
+                        // The composer restores the text of the draft that
+                        // belongs to the target it was written for.
+                        navController.navigate(
+                            composeRoute(
+                                inReplyTo = draft.targetId.takeIf { draft.kind == DraftKind.REPLY },
+                                repostOf = draft.targetId.takeIf { draft.kind == DraftKind.REPOST },
+                            ),
+                        )
+                    },
                 )
             }
 

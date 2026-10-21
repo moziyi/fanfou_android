@@ -125,6 +125,17 @@ class StatusRepository @Inject constructor(
         const val DEFAULT_PHOTO_TEXT = "上传了新照片"
     }
 
+    /**
+     * The display names of the given statuses, for the ones that are still in
+     * the cache. Missing ones are simply absent.
+     */
+    suspend fun namesOf(ids: List<String>): Map<String, String> {
+        if (ids.isEmpty()) return emptyMap()
+        return statusDao.statusByIds(ids)
+            .mapNotNull { row -> toUi(row).user?.screenName?.let { row.status.id to it } }
+            .toMap()
+    }
+
     fun status(id: String): Flow<StatusUi?> =
         statusDao.statusFlow(id).map { row -> row?.let(StatusMapper::toUi) }
 

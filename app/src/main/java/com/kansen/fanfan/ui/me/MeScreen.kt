@@ -34,6 +34,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.kansen.fanfan.core.datastore.SelfUser
+import androidx.compose.material.icons.filled.EditNote
 
 @Composable
 fun MeScreen(
@@ -42,6 +43,7 @@ fun MeScreen(
     onOpenFriends: () -> Unit,
     onOpenFollowers: () -> Unit,
     onOpenDirectMessages: () -> Unit,
+    onOpenDrafts: () -> Unit,
     onTestNotification: () -> Unit,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier,
@@ -89,6 +91,7 @@ fun MeScreen(
         MeEntry(icon = Icons.Filled.Group, label = "我的粉丝", onClick = onOpenFollowers)
 
         MeEntry(icon = Icons.Filled.Email, label = "私信", onClick = onOpenDirectMessages)
+        MeEntry(icon = Icons.Filled.EditNote, label = "草稿箱", onClick = onOpenDrafts)
 
         if (com.kansen.fanfan.BuildConfig.DEBUG) {
             MeEntry(icon = Icons.Filled.Notifications, label = "测试通知（Debug）", onClick = onTestNotification)
