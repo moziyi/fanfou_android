@@ -7,6 +7,7 @@ import com.kansen.fanfan.core.network.UserAgentInterceptor
 import com.kansen.fanfan.core.network.api.FanfouApi
 import com.kansen.fanfan.core.network.api.FavoritesApi
 import com.kansen.fanfan.core.network.api.DmApi
+import com.kansen.fanfan.core.network.api.SearchApi
 import com.kansen.fanfan.core.network.api.StatusesApi
 import com.kansen.fanfan.core.network.api.UsersApi
 import com.kansen.fanfan.core.network.token.TokenCache
@@ -76,6 +77,10 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideStatusesApi(retrofit: Retrofit): StatusesApi = retrofit.create(StatusesApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideSearchApi(retrofit: Retrofit): SearchApi = retrofit.create(SearchApi::class.java)
 
     @Provides
     @Singleton

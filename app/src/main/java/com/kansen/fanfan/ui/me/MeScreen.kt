@@ -47,6 +47,8 @@ import com.kansen.fanfan.core.datastore.SelfUser
 @Composable
 fun MeScreen(
     user: SelfUser,
+    /** The number of conversations that have something unread. */
+    unreadDms: Int = 0,
     onOpenProfile: () -> Unit,
     onOpenFriends: () -> Unit,
     onOpenFollowers: () -> Unit,
@@ -100,7 +102,12 @@ fun MeScreen(
         MeEntry(icon = Icons.Filled.Star, label = "我的关注", onClick = onOpenFriends)
         MeEntry(icon = Icons.Filled.Group, label = "我的粉丝", onClick = onOpenFollowers)
 
-        MeEntry(icon = Icons.Filled.Email, label = "私信", onClick = onOpenDirectMessages)
+        MeEntry(
+            icon = Icons.Filled.Email,
+            label = "私信",
+            badge = unreadDms.takeIf { it > 0 },
+            onClick = onOpenDirectMessages,
+        )
         MeEntry(icon = Icons.Filled.EditNote, label = "草稿箱", onClick = onOpenDrafts)
         MeEntry(icon = Icons.Filled.Info, label = "关于", onClick = { showAbout = true })
 
@@ -125,7 +132,12 @@ fun MeScreen(
 }
 
 @Composable
-private fun MeEntry(icon: ImageVector, label: String, onClick: () -> Unit) {
+private fun MeEntry(
+    icon: ImageVector,
+    label: String,
+    badge: Int? = null,
+    onClick: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -136,6 +148,14 @@ private fun MeEntry(icon: ImageVector, label: String, onClick: () -> Unit) {
         Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.size(16.dp))
         Text(text = label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        badge?.let {
+            Text(
+                text = if (it > 99) "99+" else it.toString(),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.size(8.dp))
+        }
         Icon(
             Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,

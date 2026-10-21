@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.FloatingActionButton
@@ -51,10 +52,12 @@ import com.kansen.fanfan.ui.me.MeScreen
 import com.kansen.fanfan.ui.mentions.MentionsScreen
 import com.kansen.fanfan.ui.timeline.TimelineScreen
 import com.kansen.fanfan.ui.user.UserScreen
+import com.kansen.fanfan.ui.search.SearchScreen
 
 private const val ROUTE_TIMELINE = "timeline"
 private const val ROUTE_MENTIONS = "mentions"
 private const val ROUTE_DM = "dm"
+private const val ROUTE_SEARCH = "search"
 private const val ROUTE_DM_CONVERSATION = "dm/{userId}"
 private const val ROUTE_ME = "me"
 private const val ROUTE_DETAIL = "detail/{id}"
@@ -67,7 +70,7 @@ private data class BottomTab(val route: String, val label: String, val icon: Ima
 private val bottomTabs = listOf(
     BottomTab(ROUTE_TIMELINE, "首页", Icons.Filled.Home),
     BottomTab(ROUTE_MENTIONS, "@我", Icons.Filled.AlternateEmail),
-    BottomTab(ROUTE_DM, "私信", Icons.Filled.Email),
+    BottomTab(ROUTE_SEARCH, "搜索", Icons.Filled.Search),
     BottomTab(ROUTE_ME, "我", Icons.Filled.Person),
 )
 
@@ -153,7 +156,9 @@ fun MainShell(
                             icon = {
                                 val badge = when (tab.route) {
                                     ROUTE_MENTIONS -> unreadMentions
-                                    ROUTE_DM -> unreadDms
+                                    // The private messages live under "我" now,
+                                    // so their badge goes with them.
+                                    ROUTE_ME -> unreadDms
                                     else -> 0
                                 }
                                 if (badge > 0) {
@@ -219,9 +224,18 @@ fun MainShell(
                     onOpenUser = { id -> navController.navigate(userRoute(id)) },
                 )
             }
+            composable(ROUTE_SEARCH) {
+                SearchScreen(
+                    onOpenStatus = { id -> navController.navigate("detail/$id") },
+                    onOpenUser = { id -> navController.navigate(userRoute(id)) },
+                    onReply = { status -> navController.navigate(composeRoute(inReplyTo = status.id)) },
+                    onRepost = { status -> navController.navigate(composeRoute(repostOf = status.id)) },
+                )
+            }
             composable(ROUTE_ME) {
                 MeScreen(
                     user = user,
+                    unreadDms = unreadDms,
                     onOpenProfile = { navController.navigate(userRoute(user.id)) },
                     onOpenFriends = { navController.navigate(userRoute(user.id, tab = 1)) },
                     onOpenFollowers = { navController.navigate(userRoute(user.id, tab = 2)) },

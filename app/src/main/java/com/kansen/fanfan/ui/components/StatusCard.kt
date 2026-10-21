@@ -38,6 +38,11 @@ import coil3.compose.AsyncImage
 import com.kansen.fanfan.core.model.ApiTime
 import com.kansen.fanfan.core.model.PhotoUi
 import com.kansen.fanfan.core.model.StatusUi
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.withStyle
 
 /**
  * One status row, laid out the way Fanfou's own clients do it: avatar column on
@@ -84,7 +89,7 @@ fun StatusCard(
                 if (status.text.isNotBlank()) {
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = status.text,
+                        text = status.bodyText(),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
@@ -314,7 +319,7 @@ private fun QuotedStatus(status: StatusUi, onPhotoClick: ((PhotoUi) -> Unit)? = 
         if (status.text.isNotBlank()) {
             Spacer(Modifier.height(2.dp))
             Text(
-                text = status.text,
+                text = status.bodyText(),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
@@ -331,5 +336,24 @@ private fun QuotedStatus(status: StatusUi, onPhotoClick: ((PhotoUi) -> Unit)? = 
 fun PlaceholderScreen(message: String) {
     Box(modifier = Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
         Text(text = message, style = MaterialTheme.typography.bodyLarge)
+    }
+}
+
+/**
+ * The text of a status. In a search result the words that matched are drawn
+ * in bold; everywhere else the text is plain.
+ */
+private fun StatusUi.bodyText(): AnnotatedString {
+    val spans = highlight ?: return AnnotatedString(text)
+    return buildAnnotatedString {
+        spans.forEach { span ->
+            if (span.bold) {
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                    append(span.text)
+                }
+            } else {
+                append(span.text)
+            }
+        }
     }
 }

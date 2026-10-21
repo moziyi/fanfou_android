@@ -23,6 +23,11 @@ data class StatusUi(
      * is fetched and cached separately (see ReplyTargetResolver).
      */
     val replied: StatusUi? = null,
+    /**
+     * The parts of the text with the search words marked, for a search
+     * result. `null` for everything else, which is drawn as plain text.
+     */
+    val highlight: List<SearchHighlight.Span>? = null,
 ) {
     val isReply: Boolean get() = inReplyToStatusId != null
 
