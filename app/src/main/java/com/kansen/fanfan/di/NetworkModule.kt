@@ -29,6 +29,7 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import java.util.concurrent.TimeUnit
 import javax.inject.Qualifier
 import javax.inject.Singleton
+import com.kansen.fanfan.core.network.api.PhotosApi
 
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
@@ -83,6 +84,10 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideUsersApi(retrofit: Retrofit): UsersApi = retrofit.create(UsersApi::class.java)
+
+    @Provides
+    @Singleton
+    fun providePhotosApi(retrofit: Retrofit): PhotosApi = retrofit.create(PhotosApi::class.java)
 
     @Provides
     @Singleton

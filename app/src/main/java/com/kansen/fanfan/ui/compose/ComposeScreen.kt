@@ -35,6 +35,22 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kansen.fanfan.core.model.StatusText
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Box
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,6 +61,12 @@ fun ComposeScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+
+    // The system photo picker needs no permission: on Android 13+ it is the
+    // photo picker, below that the document picker.
+    val photoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia(),
+    ) { uri -> uri?.let(viewModel::attachPhoto) }
 
     LaunchedEffect(state.error) {
         state.error?.let {
@@ -120,11 +142,78 @@ fun ComposeScreen(
                 enabled = !state.posting,
             )
 
+            if (state.uploading) {
+                Spacer(Modifier.height(8.dp))
+                LinearProgressIndicator(
+                    progress = { state.uploadProgress },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "上传中 ${(state.uploadProgress * 100).toInt()}%",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            state.photoPreview?.let { preview ->
+                Spacer(Modifier.height(8.dp))
+                Box {
+                    Image(
+                        bitmap = preview,
+                        contentDescription = "已选择的图片",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 220.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Crop,
+                    )
+                    IconButton(
+                        onClick = viewModel::removePhoto,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
+                            .size(32.dp)
+                            .background(
+                                MaterialTheme.colorScheme.scrim.copy(alpha = 0.5f),
+                                CircleShape,
+                            ),
+                    ) {
+                        Icon(
+                            Icons.Filled.Close,
+                            contentDescription = "移除图片",
+                            tint = Color.White,
+                        )
+                    }
+                }
+                Text(
+                    text = "图片不会保存到草稿",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             Spacer(Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (state.canAttachPhoto) {
+                    IconButton(onClick = {
+                        photoPicker.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                        )
+                    }, enabled = !state.photoBusy && !state.posting) {
+                        Icon(Icons.Filled.Image, contentDescription = "添加图片")
+                    }
+                    if (state.photoBusy) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    }
+                }
+                Spacer(Modifier.weight(1f))
                 Text(
                     text = "${StatusText.length(state.text)}/${StatusText.MAX_LENGTH}",
                     style = MaterialTheme.typography.labelMedium,

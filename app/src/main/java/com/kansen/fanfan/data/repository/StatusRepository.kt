@@ -16,6 +16,12 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.kansen.fanfan.core.common.runCatchingCancellable
+import com.kansen.fanfan.core.network.api.PhotosApi
+import com.kansen.fanfan.data.media.PreparedPhoto
+import com.kansen.fanfan.data.media.ProgressRequestBody
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
  * Write path: publish / reply / repost / favorite / delete. Network first, then
@@ -25,6 +31,7 @@ import com.kansen.fanfan.core.common.runCatchingCancellable
 class StatusRepository @Inject constructor(
     private val statusesApi: StatusesApi,
     private val favoritesApi: FavoritesApi,
+    private val photosApi: PhotosApi,
     private val statusDao: StatusDao,
     private val db: FanfanDatabase,
     private val store: StatusStore,
@@ -52,6 +59,33 @@ class StatusRepository @Inject constructor(
             inReplyToStatusId = inReplyToStatusId,
             repostStatusId = repostStatusId,
         )
+        store.saveTimeline(listOf(dto), TimelineType.HOME.key)
+        dto.toUi()
+    }
+
+    /**
+     * Posts a status with a picture.
+     *
+     * Live-verified 2026-10-21: `photos/upload` creates the status itself —
+     * the picture and the text go in one multipart request and the answer is
+     * the new status. The endpoint rejects an empty text with
+     * 400 「上传照片失败」, so the default text the server uses itself is sent
+     * when the composer has none.
+     */
+    suspend fun postPhoto(
+        text: String,
+        photo: PreparedPhoto,
+        onProgress: (Float) -> Unit = {},
+    ): Result<StatusUi> = runCatchingCancellable {
+        val body = text.trim().ifEmpty { DEFAULT_PHOTO_TEXT }
+        val file = ProgressRequestBody(
+            bytes = photo.bytes,
+            mediaType = photo.mimeType.toMediaType(),
+            onProgress = onProgress,
+        )
+        val part = MultipartBody.Part.createFormData("photo", photo.fileName, file)
+        val status = body.toRequestBody("text/plain; charset=utf-8".toMediaType())
+        val dto = photosApi.upload(part, status)
         store.saveTimeline(listOf(dto), TimelineType.HOME.key)
         dto.toUi()
     }
@@ -84,6 +118,11 @@ class StatusRepository @Inject constructor(
                 statusDao.deleteStatus(statusId)
             }
         }
+    }
+
+    private companion object {
+        /** The text the server uses itself when a photo is posted without one. */
+        const val DEFAULT_PHOTO_TEXT = "上传了新照片"
     }
 
     fun status(id: String): Flow<StatusUi?> =
