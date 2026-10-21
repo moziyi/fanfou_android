@@ -35,6 +35,10 @@ interface StatusDao {
     )
     fun timeline(timelineType: String, limit: Int = TIMELINE_LIMIT): Flow<List<StatusRow>>
 
+    /** The favorite states that were changed locally, for the ids given. */
+    @Query("SELECT * FROM favorite_override WHERE statusId IN (:ids)")
+    suspend fun favoriteOverrides(ids: List<String>): List<FavoriteOverrideEntity>
+
     @Query("SELECT statusId FROM timeline_entry WHERE timelineType = :timelineType ORDER BY rawid ASC LIMIT 1")
     suspend fun oldestId(timelineType: String): String?
 

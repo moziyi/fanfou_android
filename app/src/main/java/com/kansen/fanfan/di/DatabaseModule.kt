@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.kansen.fanfan.core.database.FanfanDatabase
 import com.kansen.fanfan.core.database.MIGRATION_1_2
+import com.kansen.fanfan.core.database.MIGRATION_2_3
 import com.kansen.fanfan.core.database.dao.DraftDao
 import com.kansen.fanfan.core.database.dao.StatusDao
 import com.kansen.fanfan.core.database.dao.UserDao
@@ -22,7 +23,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): FanfanDatabase =
         Room.databaseBuilder(context, FanfanDatabase::class.java, "fanfan.db")
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .build()
 
     @Provides

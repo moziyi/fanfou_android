@@ -9,6 +9,9 @@ import kotlinx.coroutines.coroutineScope
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.kansen.fanfan.core.common.runCatchingCancellable
+import com.kansen.fanfan.core.model.StatusMapper
+import com.kansen.fanfan.core.model.StatusMapper.toUi
+import com.kansen.fanfan.core.model.StatusUi
 
 /**
  * Fetches the statuses a page's replies answer. Fanfou's timeline payload only
@@ -41,6 +44,24 @@ class ReplyTargetResolver @Inject constructor(
         }.filterNotNull()
 
         store.saveBare(fetched)
+    }
+
+    /**
+     * Fetches the given reply parents without storing them. The public
+     * timeline keeps nothing, so its parents are only held in memory by the
+     * caller.
+     */
+    suspend fun fetchParents(ids: List<String>): Map<String, StatusUi> {
+        if (ids.isEmpty()) return emptyMap()
+        val fetched = ids.chunked(MAX_PARALLEL).flatMap { chunk ->
+            coroutineScope {
+                chunk.map { id -> async { runCatchingCancellable { api.show(id) }.getOrNull() } }.awaitAll()
+            }
+        }.filterNotNull()
+        return fetched.mapNotNull { dto ->
+            val id = dto.id ?: return@mapNotNull null
+            id to dto.toUi().copy(id = id)
+        }.toMap()
     }
 
     private companion object {

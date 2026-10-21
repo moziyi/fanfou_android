@@ -38,10 +38,17 @@ class TimelineRepository @Inject constructor(
     private val statusDao: StatusDao,
     private val store: StatusStore,
     private val replyTargets: ReplyTargetResolver,
+    private val publicSource: PublicTimelineSource,
 ) {
 
-    fun timeline(type: TimelineType): Flow<List<StatusUi>> =
-        statusDao.timeline(type.key).map { rows -> attachReplyTargets(rows.map(StatusMapper::toUi)) }
+    /**
+     * The public timeline is not cached: it is held in memory only, so the
+     * tab is empty after a restart and needs the network.
+     */
+    fun timeline(type: TimelineType): Flow<List<StatusUi>> = when (type) {
+        TimelineType.PUBLIC -> publicSource.items
+        else -> statusDao.timeline(type.key).map { rows -> attachReplyTargets(rows.map(StatusMapper::toUi)) }
+    }
 
     /**
      * Pull-to-refresh always fetches the full newest page instead of only
@@ -53,12 +60,24 @@ class TimelineRepository @Inject constructor(
      */
     suspend fun refresh(type: TimelineType): Result<Unit> = runCatchingCancellable {
         val page = fetch(type, sinceId = null, maxId = null)
-        cachePage(type, page)
-        reconcileDeleted(type, page)
+        if (type == TimelineType.PUBLIC) {
+            // Nothing is written: the page replaces the list in memory.
+            publicSource.replace(page)
+        } else {
+            cachePage(type, page)
+            reconcileDeleted(type, page)
+        }
     }
 
     /** Returns true when older statuses were appended (false = end reached). */
     suspend fun loadMore(type: TimelineType): Result<Boolean> = runCatchingCancellable {
+        if (type == TimelineType.PUBLIC) {
+            val oldest = publicSource.oldestId() ?: return@runCatchingCancellable false
+            val page = fetch(type, sinceId = null, maxId = oldest)
+            if (page.isEmpty()) return@runCatchingCancellable false
+            publicSource.append(page)
+            return@runCatchingCancellable true
+        }
         val oldestId = statusDao.oldestId(type.key) ?: return@runCatchingCancellable false
         val page = fetch(type, sinceId = null, maxId = oldestId)
         if (page.isEmpty()) return@runCatchingCancellable false

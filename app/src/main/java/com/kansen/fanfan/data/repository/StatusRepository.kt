@@ -36,6 +36,7 @@ class StatusRepository @Inject constructor(
     private val statusDao: StatusDao,
     private val db: FanfanDatabase,
     private val store: StatusStore,
+    private val publicSource: PublicTimelineSource,
 ) {
 
     suspend fun post(
@@ -107,6 +108,8 @@ class StatusRepository @Inject constructor(
         val dto = if (target) favoritesApi.create(status.id) else favoritesApi.destroy(status.id)
         val effective = dto.favorited ?: target
         statusDao.upsertFavoriteOverride(FavoriteOverrideEntity(status.id, effective))
+        // The public timeline is not in the database, so it is told directly.
+        publicSource.applyFavorite(status.id, effective)
         effective
     }
 

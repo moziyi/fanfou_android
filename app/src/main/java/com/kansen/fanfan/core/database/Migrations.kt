@@ -21,3 +21,16 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
         db.execSQL("DELETE FROM timeline_entry")
     }
 }
+
+/**
+ * v3 drops the cached public timeline: "随便看看" is not cached any more, it
+ * lives in memory only (see `PublicTimelineSource`).
+ *
+ * The status rows of those entries are left alone — they are collected by the
+ * regular orphan pruning, which also keeps the reply parents alive.
+ */
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("DELETE FROM timeline_entry WHERE timelineType = 'public'")
+    }
+}

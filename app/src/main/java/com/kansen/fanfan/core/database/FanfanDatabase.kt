@@ -19,7 +19,7 @@ import com.kansen.fanfan.core.database.entity.UserEntity
         UserEntity::class,
         DraftEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class FanfanDatabase : RoomDatabase() {
