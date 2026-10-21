@@ -14,7 +14,7 @@ import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
 import com.kansen.fanfan.core.notifications.MentionNotifications
-import com.kansen.fanfan.core.notifications.MentionWorker
+import com.kansen.fanfan.core.notifications.FanfouPollWorker
 import com.kansen.fanfan.di.AuthWarmup
 import dagger.hilt.android.HiltAndroidApp
 import java.util.concurrent.TimeUnit
@@ -48,7 +48,7 @@ class FanfanApp : Application(), SingletonImageLoader.Factory, Configuration.Pro
      * `AlarmManager.setAndAllowWhileIdle` fallback is needed.
      */
     private fun scheduleMentionPolling() {
-        val request = PeriodicWorkRequestBuilder<MentionWorker>(15, TimeUnit.MINUTES)
+        val request = PeriodicWorkRequestBuilder<FanfouPollWorker>(15, TimeUnit.MINUTES)
             .setConstraints(
                 Constraints.Builder()
                     .setRequiredNetworkType(NetworkType.CONNECTED)

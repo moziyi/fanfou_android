@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
@@ -40,6 +41,7 @@ fun MeScreen(
     onOpenProfile: () -> Unit,
     onOpenFriends: () -> Unit,
     onOpenFollowers: () -> Unit,
+    onOpenDirectMessages: () -> Unit,
     onTestNotification: () -> Unit,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier,
@@ -85,6 +87,8 @@ fun MeScreen(
         MeEntry(icon = Icons.Filled.Person, label = "我的主页", onClick = onOpenProfile)
         MeEntry(icon = Icons.Filled.Star, label = "我的关注", onClick = onOpenFriends)
         MeEntry(icon = Icons.Filled.Group, label = "我的粉丝", onClick = onOpenFollowers)
+
+        MeEntry(icon = Icons.Filled.Email, label = "私信", onClick = onOpenDirectMessages)
 
         if (com.kansen.fanfan.BuildConfig.DEBUG) {
             MeEntry(icon = Icons.Filled.Notifications, label = "测试通知（Debug）", onClick = onTestNotification)

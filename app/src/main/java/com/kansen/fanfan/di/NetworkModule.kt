@@ -6,6 +6,7 @@ import com.kansen.fanfan.core.network.OAuthSigningInterceptor
 import com.kansen.fanfan.core.network.UserAgentInterceptor
 import com.kansen.fanfan.core.network.api.FanfouApi
 import com.kansen.fanfan.core.network.api.FavoritesApi
+import com.kansen.fanfan.core.network.api.DmApi
 import com.kansen.fanfan.core.network.api.StatusesApi
 import com.kansen.fanfan.core.network.api.UsersApi
 import com.kansen.fanfan.core.network.token.TokenCache
@@ -82,6 +83,10 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideUsersApi(retrofit: Retrofit): UsersApi = retrofit.create(UsersApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideDmApi(retrofit: Retrofit): DmApi = retrofit.create(DmApi::class.java)
 
     @Provides
     @Singleton

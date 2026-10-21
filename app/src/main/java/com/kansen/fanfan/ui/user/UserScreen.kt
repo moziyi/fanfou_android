@@ -28,6 +28,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -65,6 +66,7 @@ fun UserScreen(
     onBack: () -> Unit,
     onOpenStatus: (String) -> Unit,
     onOpenUser: (String) -> Unit,
+    onSendMessage: (String) -> Unit,
     viewModel: UserViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -138,6 +140,7 @@ fun UserScreen(
                 ) {
                     item(key = "header") {
                         ProfileHeader(
+                            onSendMessage = { onSendMessage(profile.id) },
                             profile = profile,
                             isSelf = state.isSelf,
                             busy = state.followingBusy,
@@ -239,6 +242,7 @@ private fun ProfileHeader(
     isSelf: Boolean,
     busy: Boolean,
     onFollow: () -> Unit,
+    onSendMessage: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)) {
@@ -284,6 +288,11 @@ private fun ProfileHeader(
 
                     else -> Button(onClick = onFollow, enabled = !busy) { Text("关注") }
                 }
+                Spacer(Modifier.width(8.dp))
+                // Entry point for a new conversation: Fanfou only allows
+                // direct messages between people who follow each other, so
+                // the server decides whether the send works.
+                OutlinedButton(onClick = onSendMessage) { Text("私信") }
             }
         }
 

@@ -43,6 +43,7 @@ class MainActivity : ComponentActivity() {
                 val viewModel: MainViewModel = hiltViewModel()
                 val state = viewModel.state.collectAsStateWithLifecycle().value
                 val unread = viewModel.unreadMentions.collectAsStateWithLifecycle().value
+                val unreadDms = viewModel.unreadDms.collectAsStateWithLifecycle().value
                 val openStatusId = pendingStatusId.asStateFlow().collectAsStateWithLifecycle().value
                 val openMentions = pendingMentions.asStateFlow().collectAsStateWithLifecycle().value
 
@@ -62,6 +63,7 @@ class MainActivity : ComponentActivity() {
                                 avatarUrl = state.session.user?.avatarUrl,
                             ),
                             unreadMentions = unread,
+                            unreadDms = unreadDms,
                             openStatusId = openStatusId,
                             openMentions = openMentions,
                             onDeepLinkHandled = {

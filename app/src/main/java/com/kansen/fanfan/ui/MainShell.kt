@@ -43,6 +43,8 @@ import com.kansen.fanfan.ui.components.PhotoViewer
 import com.kansen.fanfan.ui.components.PlaceholderScreen
 import com.kansen.fanfan.ui.compose.ComposeScreen
 import com.kansen.fanfan.ui.detail.DetailScreen
+import com.kansen.fanfan.ui.dm.DmConversationScreen
+import com.kansen.fanfan.ui.dm.DmListScreen
 import com.kansen.fanfan.ui.me.MeScreen
 import com.kansen.fanfan.ui.mentions.MentionsScreen
 import com.kansen.fanfan.ui.timeline.TimelineScreen
@@ -51,6 +53,7 @@ import com.kansen.fanfan.ui.user.UserScreen
 private const val ROUTE_TIMELINE = "timeline"
 private const val ROUTE_MENTIONS = "mentions"
 private const val ROUTE_DM = "dm"
+private const val ROUTE_DM_CONVERSATION = "dm/{userId}"
 private const val ROUTE_ME = "me"
 private const val ROUTE_DETAIL = "detail/{id}"
 private const val ROUTE_COMPOSE = "compose?inReplyTo={inReplyTo}&repostOf={repostOf}"
@@ -74,6 +77,7 @@ private fun userRoute(id: String, tab: Int = 0): String = "user/$id?tab=$tab"
 fun MainShell(
     user: SelfUser,
     unreadMentions: Int,
+    unreadDms: Int,
     openStatusId: String?,
     openMentions: Boolean,
     onDeepLinkHandled: () -> Unit,
@@ -144,11 +148,16 @@ fun MainShell(
                                 }
                             },
                             icon = {
-                                if (tab.route == ROUTE_MENTIONS && unreadMentions > 0) {
+                                val badge = when (tab.route) {
+                                    ROUTE_MENTIONS -> unreadMentions
+                                    ROUTE_DM -> unreadDms
+                                    else -> 0
+                                }
+                                if (badge > 0) {
                                     BadgedBox(
                                         badge = {
                                             Badge {
-                                                Text(if (unreadMentions > 99) "99+" else unreadMentions.toString())
+                                                Text(if (badge > 99) "99+" else badge.toString())
                                             }
                                         },
                                     ) {
@@ -191,13 +200,32 @@ fun MainShell(
                     onReply = { status -> navController.navigate(composeRoute(inReplyTo = status.id)) },
                 )
             }
-            composable(ROUTE_DM) { PlaceholderScreen("「私信」将在 M3 交付") }
+            composable(ROUTE_DM) {
+                DmListScreen(
+                    onOpenConversation = { conversation ->
+                        navController.navigate("dm/${conversation.otherId}")
+                    },
+                )
+            }
+            composable(
+                route = ROUTE_DM_CONVERSATION,
+                arguments = listOf(navArgument("userId") { type = NavType.StringType }),
+            ) {
+                DmConversationScreen(onBack = { navController.popBackStack() })
+            }
             composable(ROUTE_ME) {
                 MeScreen(
                     user = user,
                     onOpenProfile = { navController.navigate(userRoute(user.id)) },
                     onOpenFriends = { navController.navigate(userRoute(user.id, tab = 1)) },
                     onOpenFollowers = { navController.navigate(userRoute(user.id, tab = 2)) },
+                    onOpenDirectMessages = {
+                        navController.navigate(ROUTE_DM) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
                     onTestNotification = { testNotification?.invoke() },
                     onLogout = onLogout,
                 )
@@ -247,6 +275,7 @@ fun MainShell(
                 UserScreen(
                     initialTab = entry.arguments?.getInt("tab") ?: 0,
                     onBack = { navController.popBackStack() },
+                    onSendMessage = { id -> navController.navigate("dm/$id") },
                     onOpenStatus = { id -> navController.navigate("detail/$id") },
                     onOpenUser = { id -> navController.navigate(userRoute(id)) },
                 )

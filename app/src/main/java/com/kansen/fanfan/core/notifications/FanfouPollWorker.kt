@@ -6,6 +6,8 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.kansen.fanfan.core.datastore.MentionStateStore
 import com.kansen.fanfan.core.datastore.TokenStore
+import com.kansen.fanfan.core.datastore.DmStateStore
+import com.kansen.fanfan.core.network.api.DmApi
 import com.kansen.fanfan.core.network.api.StatusesApi
 import com.kansen.fanfan.data.repository.StatusStore
 import com.kansen.fanfan.data.repository.TimelineType
@@ -14,21 +16,27 @@ import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
 
 /**
- * Polls mentions every 15 minutes (WorkManager's minimum) and posts system
- * notifications for statuses newer than the local watermark.
+ * Polls the account every 15 minutes (WorkManager's minimum):
+ *
+ * - mentions: posts system notifications for statuses newer than the local
+ *   watermark and keeps the @我 cache fresh;
+ * - direct messages: refreshes the unread-conversation count for the 私信 tab
+ *   badge.
  *
  * Live-verified 2026-10-20: fetching `statuses/mentions` also clears the unread
  * counter on the server, which is unavoidable if the notification is to carry
  * the author and the text — see design D1.
  */
 @HiltWorker
-class MentionWorker @AssistedInject constructor(
+class FanfouPollWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted params: WorkerParameters,
     private val api: StatusesApi,
     private val tokenStore: TokenStore,
     private val state: MentionStateStore,
     private val store: StatusStore,
+    private val dmApi: DmApi,
+    private val dmState: DmStateStore,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
@@ -51,6 +59,7 @@ class MentionWorker @AssistedInject constructor(
         // installing the app would fire a notification for every old mention.
         if (notifiedUpTo == 0L) {
             state.markNotified(newest)
+            refreshUnreadConversations()
             return Result.success()
         }
 
@@ -59,10 +68,23 @@ class MentionWorker @AssistedInject constructor(
             MentionNotifications.show(applicationContext, fresh)
             state.markNotified(maxOf(newest, fresh.maxOf { it.rawid ?: 0L }))
         }
+        refreshUnreadConversations()
         return Result.success()
+    }
+
+    /**
+     * The 私信 tab badge counts conversations with unread messages. A failure
+     * here must not fail the mention poll, so it is swallowed.
+     */
+    private suspend fun refreshUnreadConversations() {
+        runCatching { dmApi.conversations(count = DM_PAGE_SIZE) }
+            .onSuccess { list ->
+                dmState.setUnreadConversations(list.count { it.new_conv == true })
+            }
     }
 
     private companion object {
         const val PAGE_SIZE = 20
+        const val DM_PAGE_SIZE = 30
     }
 }
