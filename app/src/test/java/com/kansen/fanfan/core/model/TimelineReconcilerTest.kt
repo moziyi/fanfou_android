@@ -1,14 +1,14 @@
 package com.kansen.fanfan.core.model
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
  * A status that was deleted on the server stays in the local cache until it
  * is pushed out of it. The refresh page says which ones are gone — with the
- * exception of the posts fanfou still holds ("【审核中】").
+ * exception of the posts fanfou still holds ("【审核中】") and the ones whose
+ * time is unknown.
  */
 class TimelineReconcilerTest {
 
@@ -80,11 +80,27 @@ class TimelineReconcilerTest {
     }
 
     @Test
+    fun `a status whose time is unknown is kept`() {
+        // A timestamp that could not be parsed is stored as 0; nothing is
+        // known about such an entry, so it is not deleted.
+        val cached = listOf(TimelineReconciler.CachedEntry(id = "unknown", rawid = 100, createdAt = 0L))
+
+        val stale = TimelineReconciler.staleIds(
+            cached = cached,
+            pageIds = emptySet(),
+            minRawid = 90,
+            now = now,
+        )
+
+        assertTrue(stale.isEmpty())
+    }
+
+    @Test
     fun `a page without ids or rawids covers no window`() {
         // Guessing the window would delete the whole cache.
-        assertNull(TimelineReconciler.windowOf(listOf("a", null), listOf(1L, 2L)))
-        assertNull(TimelineReconciler.windowOf(listOf("a", "b"), listOf(1L, null)))
-        assertNull(TimelineReconciler.windowOf(emptyList(), emptyList()))
+        assertTrue(TimelineReconciler.windowOf(listOf("a", null), listOf(1L, 2L)) == null)
+        assertTrue(TimelineReconciler.windowOf(listOf("a", "b"), listOf(1L, null)) == null)
+        assertTrue(TimelineReconciler.windowOf(emptyList(), emptyList()) == null)
     }
 
     @Test

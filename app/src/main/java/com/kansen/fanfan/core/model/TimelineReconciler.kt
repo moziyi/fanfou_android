@@ -52,6 +52,9 @@ object TimelineReconciler {
     ): List<String> = cached
         .filter { it.rawid >= minRawid }
         .filter { it.id !in pageIds }
+        // An entry whose time could not be read has no known age; it is not
+        // deleted, because nothing is known about it.
+        .filter { it.createdAt > 0L }
         .filter { now - it.createdAt >= HOLD_GRACE_MILLIS }
         .map { it.id }
 

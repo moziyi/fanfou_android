@@ -14,6 +14,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.kansen.fanfan.core.common.PictureException
 
 /**
  * A picture that is ready to be uploaded: the (possibly shrunk) JPEG bytes,
@@ -83,7 +84,7 @@ class PhotoPreparer @Inject constructor(
             // bitmap, and a recycled bitmap cannot be asked for its size.
             val width = bitmap.width
             val height = bitmap.height
-            val bytes = encodeJpeg(bitmap, rotationOf(original))
+            val bytes = encodeJpeg(bitmap, orientationOf(original))
             PreparedPhoto(
                 bytes = bytes,
                 mimeType = "image/jpeg",
@@ -100,7 +101,7 @@ class PhotoPreparer @Inject constructor(
      */
     private fun readBounded(uri: Uri): ByteArray {
         val stream = context.contentResolver.openInputStream(uri)
-            ?: throw IOException("无法读取所选图片")
+            ?: throw PictureException("无法读取所选图片")
         stream.use { input ->
             val out = ByteArrayOutputStream()
             val buffer = ByteArray(64 * 1024)
@@ -109,7 +110,7 @@ class PhotoPreparer @Inject constructor(
                 val read = input.read(buffer)
                 if (read < 0) break
                 total += read
-                if (total > MAX_SOURCE_BYTES) throw IOException("图片太大（超过 20 MB）")
+                if (total > MAX_SOURCE_BYTES) throw PictureException("图片太大（超过 20 MB）")
                 out.write(buffer, 0, read)
             }
             return out.toByteArray()
@@ -135,12 +136,28 @@ class PhotoPreparer @Inject constructor(
         return bitmap
     }
 
-    /** Applies the EXIF rotation, so a photo taken sideways is not uploaded sideways. */
-    private fun encodeJpeg(bitmap: Bitmap, rotation: Int): ByteArray {
-        val rotated = if (rotation == 0) {
+    /**
+     * Applies the orientation of the picture, so a photo taken sideways or
+     * mirrored (the front camera marks those) is not uploaded that way.
+     */
+    private fun encodeJpeg(bitmap: Bitmap, orientation: Int): ByteArray {
+        val rotated = if (orientation == ExifInterface.ORIENTATION_NORMAL) {
             bitmap
         } else {
-            val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
+            val matrix = Matrix()
+            when (orientation) {
+                ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.setScale(-1f, 1f)
+                ExifInterface.ORIENTATION_ROTATE_180 -> matrix.setRotate(180f)
+                ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.setScale(1f, -1f)
+                // The two transposed orientations also mirror the picture;
+                // only the turn is applied — getting the turn wrong would be
+                // far more visible than a missing mirror.
+                ExifInterface.ORIENTATION_TRANSPOSE -> matrix.setRotate(270f)
+                ExifInterface.ORIENTATION_ROTATE_90 -> matrix.setRotate(90f)
+                ExifInterface.ORIENTATION_TRANSVERSE -> matrix.setRotate(90f)
+                ExifInterface.ORIENTATION_ROTATE_270 -> matrix.setRotate(-90f)
+                else -> matrix.setRotate(0f)
+            }
             Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
         }
         val out = ByteArrayOutputStream()
@@ -150,16 +167,12 @@ class PhotoPreparer @Inject constructor(
         return out.toByteArray()
     }
 
-    private fun rotationOf(bytes: ByteArray): Int = try {
-        val exif = ExifInterface(ByteArrayInputStream(bytes))
-        when (exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)) {
-            ExifInterface.ORIENTATION_ROTATE_90 -> 90
-            ExifInterface.ORIENTATION_ROTATE_180 -> 180
-            ExifInterface.ORIENTATION_ROTATE_270 -> 270
-            else -> 0
-        }
+    /** The orientation the picture was taken in, as the EXIF tag says. */
+    private fun orientationOf(bytes: ByteArray): Int = try {
+        ExifInterface(ByteArrayInputStream(bytes))
+            .getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
     } catch (e: Exception) {
-        0
+        ExifInterface.ORIENTATION_NORMAL
     }
 
     private fun mimeFromName(uri: Uri): String {

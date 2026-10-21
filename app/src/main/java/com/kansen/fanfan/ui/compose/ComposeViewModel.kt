@@ -24,6 +24,8 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.kansen.fanfan.core.common.runCatchingCancellable
+import com.kansen.fanfan.data.repository.StatusPostUnconfirmedException
 
 data class ComposeUiState(
     val text: String = "",
@@ -117,7 +119,8 @@ class ComposeViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(photoBusy = true, error = null) }
             val prepared = withContext(Dispatchers.Default) {
-                runCatching { photoPreparer.prepare(uri) }.map { it to it.previewBitmap() }
+                runCatchingCancellable { photoPreparer.prepare(uri) }
+                    .map { it to it.previewBitmap() }
             }
             prepared
                 .onSuccess { (photo, preview) ->
@@ -177,9 +180,21 @@ class ComposeViewModel @Inject constructor(
                     }
                 }
                 .onFailure { t ->
+                    // The status may exist even though the answer could not be
+                    // read: dropping the text keeps a duplicate from being
+                    // sent by a blind retry.
+                    val unconfirmed = t is StatusPostUnconfirmedException
                     _uiState.update {
-                        it.copy(posting = false, uploading = false, error = t.userMessage())
+                        it.copy(
+                            posting = false,
+                            uploading = false,
+                            error = t.userMessage(),
+                            text = if (unconfirmed) "" else it.text,
+                            photo = if (unconfirmed) null else it.photo,
+                            photoPreview = if (unconfirmed) null else it.photoPreview,
+                        )
                     }
+                    if (unconfirmed) draftRepository.clear(draftId)
                 }
         }
     }

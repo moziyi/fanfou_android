@@ -167,5 +167,4 @@ class DmConversationViewModel @Inject constructor(
             }
         }
     }
-
 }

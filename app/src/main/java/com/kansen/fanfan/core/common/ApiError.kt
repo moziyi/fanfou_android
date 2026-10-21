@@ -23,6 +23,8 @@ fun parseApiError(body: String?): String? = body?.let { raw ->
  * token is no longer valid (sole force-logout trigger per design §5.4).
  */
 fun Throwable.userMessage(): String = when (this) {
+    // A problem with the picture the user picked is not a network problem.
+    is PictureException -> message ?: "图片处理失败"
     is FanfouApiException -> message ?: "请求失败 (HTTP $httpCode)"
     is HttpException -> {
         val body = runCatching { response()?.errorBody()?.string() }.getOrNull()

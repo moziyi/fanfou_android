@@ -22,6 +22,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import kotlinx.serialization.SerializationException
 
 /**
  * Write path: publish / reply / repost / favorite / delete. Network first, then
@@ -54,11 +55,17 @@ class StatusRepository @Inject constructor(
                 else -> "转@$repostAuthor"
             }
         }
-        val dto = statusesApi.update(
-            status = body,
-            inReplyToStatusId = inReplyToStatusId,
-            repostStatusId = repostStatusId,
-        )
+        val dto = try {
+            statusesApi.update(
+                status = body,
+                inReplyToStatusId = inReplyToStatusId,
+                repostStatusId = repostStatusId,
+            )
+        } catch (e: SerializationException) {
+            // The status may have been created; the answer just could not be
+            // read. Keeping the text would invite a duplicate.
+            throw StatusPostUnconfirmedException()
+        }
         store.saveTimeline(listOf(dto), TimelineType.HOME.key)
         dto.toUi()
     }
@@ -85,7 +92,11 @@ class StatusRepository @Inject constructor(
         )
         val part = MultipartBody.Part.createFormData("photo", photo.fileName, file)
         val status = body.toRequestBody("text/plain; charset=utf-8".toMediaType())
-        val dto = photosApi.upload(part, status)
+        val dto = try {
+            photosApi.upload(part, status)
+        } catch (e: SerializationException) {
+            throw StatusPostUnconfirmedException()
+        }
         store.saveTimeline(listOf(dto), TimelineType.HOME.key)
         dto.toUi()
     }
