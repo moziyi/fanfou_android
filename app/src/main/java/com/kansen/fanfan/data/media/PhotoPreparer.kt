@@ -7,13 +7,13 @@ import android.graphics.Matrix
 import android.media.ExifInterface
 import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * A picture that is ready to be uploaded: the (possibly shrunk) JPEG bytes,
@@ -65,8 +65,7 @@ class PhotoPreparer @Inject constructor(
 ) {
 
     suspend fun prepare(uri: Uri): PreparedPhoto = withContext(Dispatchers.Default) {
-        val original = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-            ?: throw IOException("无法读取所选图片")
+        val original = readBounded(uri)
         val mime = context.contentResolver.getType(uri) ?: mimeFromName(uri)
 
         val bitmap = decodeScaled(original)
@@ -80,16 +79,40 @@ class PhotoPreparer @Inject constructor(
                 height = 0,
             )
         } else {
+            // The size is read before the encoding: encodeJpeg recycles the
+            // bitmap, and a recycled bitmap cannot be asked for its size.
+            val width = bitmap.width
+            val height = bitmap.height
             val bytes = encodeJpeg(bitmap, rotationOf(original))
-            val prepared = PreparedPhoto(
+            PreparedPhoto(
                 bytes = bytes,
                 mimeType = "image/jpeg",
                 fileName = fileNameFor(uri, "image/jpeg"),
-                width = bitmap.width,
-                height = bitmap.height,
+                width = width,
+                height = height,
             )
-            bitmap.recycle()
-            prepared
+        }
+    }
+
+    /**
+     * Reads the picture, but not an endless one: a huge file would exhaust
+     * the memory of the app before it is scaled down.
+     */
+    private fun readBounded(uri: Uri): ByteArray {
+        val stream = context.contentResolver.openInputStream(uri)
+            ?: throw IOException("无法读取所选图片")
+        stream.use { input ->
+            val out = ByteArrayOutputStream()
+            val buffer = ByteArray(64 * 1024)
+            var total = 0
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                total += read
+                if (total > MAX_SOURCE_BYTES) throw IOException("图片太大（超过 20 MB）")
+                out.write(buffer, 0, read)
+            }
+            return out.toByteArray()
         }
     }
 
@@ -123,6 +146,7 @@ class PhotoPreparer @Inject constructor(
         val out = ByteArrayOutputStream()
         rotated.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
         if (rotated != bitmap) rotated.recycle()
+        bitmap.recycle()
         return out.toByteArray()
     }
 
@@ -164,6 +188,9 @@ class PhotoPreparer @Inject constructor(
         /** The long edge of the uploaded picture. */
         const val MAX_EDGE = 2048
         const val JPEG_QUALITY = 85
+
+        /** Pictures bigger than this are refused instead of exhausting the heap. */
+        const val MAX_SOURCE_BYTES = 20 * 1024 * 1024
     }
 }
 

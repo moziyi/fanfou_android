@@ -16,6 +16,26 @@ object TimelineReconciler {
     /** How long a status may be missing from the page before it counts as deleted. */
     const val HOLD_GRACE_MILLIS = 60 * 60 * 1000L
 
+    /** The window a page covers: its ids and its oldest item. */
+    data class PageWindow(
+        val ids: Set<String>,
+        val minRawid: Long,
+    )
+
+    /**
+     * The window the page covers, or null when the page does not say: an
+     * item without an id or a rawid leaves the window unknown, and guessing
+     * it would make the reconciliation delete the whole cache.
+     */
+    fun windowOf(ids: List<String?>, rawids: List<Long?>): PageWindow? {
+        if (ids.isEmpty() || ids.size != rawids.size) return null
+        if (ids.any { it == null } || rawids.any { it == null }) return null
+        return PageWindow(
+            ids = ids.filterNotNull().toSet(),
+            minRawid = rawids.filterNotNull().min(),
+        )
+    }
+
     /**
      * The ids of the cached entries that the page proves are gone.
      *

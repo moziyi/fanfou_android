@@ -23,11 +23,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,7 +54,20 @@ fun DraftsScreen(
     viewModel: DraftsViewModel = hiltViewModel(),
 ) {
     val drafts by viewModel.drafts.collectAsStateWithLifecycle()
+    val lastDeleted by viewModel.lastDeleted.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
+    val snackbar = remember { SnackbarHostState() }
+
+    // Deleting is one tap, so it can be taken back.
+    LaunchedEffect(lastDeleted) {
+        if (lastDeleted == null) return@LaunchedEffect
+        val result = snackbar.showSnackbar(
+            message = "草稿已删除",
+            actionLabel = "撤销",
+            duration = SnackbarDuration.Short,
+        )
+        if (result == SnackbarResult.ActionPerformed) viewModel.undoDelete()
+    }
 
     // A new draft is sorted to the top, but the list keeps the scroll
     // anchored to the item that was visible — so the new draft would land
@@ -69,6 +87,7 @@ fun DraftsScreen(
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         if (drafts.isEmpty()) {
             Box(
@@ -94,7 +113,7 @@ fun DraftsScreen(
                 DraftRow(
                     draft = draft,
                     onClick = { onOpenDraft(draft) },
-                    onDelete = { viewModel.delete(draft.id) },
+                    onDelete = { viewModel.delete(draft) },
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
             }

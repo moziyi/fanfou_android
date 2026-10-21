@@ -1,6 +1,7 @@
 package com.kansen.fanfan.core.model
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -76,6 +77,22 @@ class TimelineReconcilerTest {
         )
 
         assertTrue(stale.isEmpty())
+    }
+
+    @Test
+    fun `a page without ids or rawids covers no window`() {
+        // Guessing the window would delete the whole cache.
+        assertNull(TimelineReconciler.windowOf(listOf("a", null), listOf(1L, 2L)))
+        assertNull(TimelineReconciler.windowOf(listOf("a", "b"), listOf(1L, null)))
+        assertNull(TimelineReconciler.windowOf(emptyList(), emptyList()))
+    }
+
+    @Test
+    fun `a complete page covers the window of its oldest item`() {
+        val window = TimelineReconciler.windowOf(listOf("a", "b"), listOf(120L, 100L))
+
+        assertEquals(setOf("a", "b"), window?.ids)
+        assertEquals(100L, window?.minRawid)
     }
 
     @Test

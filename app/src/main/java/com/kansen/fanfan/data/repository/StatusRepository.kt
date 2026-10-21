@@ -1,6 +1,7 @@
 package com.kansen.fanfan.data.repository
 
 import androidx.room.withTransaction
+import com.kansen.fanfan.core.common.runCatchingCancellable
 import com.kansen.fanfan.core.database.FanfanDatabase
 import com.kansen.fanfan.core.database.dao.StatusDao
 import com.kansen.fanfan.core.database.entity.FavoriteOverrideEntity
@@ -8,17 +9,16 @@ import com.kansen.fanfan.core.model.StatusMapper
 import com.kansen.fanfan.core.model.StatusMapper.toUi
 import com.kansen.fanfan.core.model.StatusUi
 import com.kansen.fanfan.core.network.api.FavoritesApi
+import com.kansen.fanfan.core.network.api.PhotosApi
 import com.kansen.fanfan.core.network.api.StatusesApi
+import com.kansen.fanfan.data.media.PreparedPhoto
+import com.kansen.fanfan.data.media.ProgressRequestBody
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import javax.inject.Inject
-import javax.inject.Singleton
-import com.kansen.fanfan.core.common.runCatchingCancellable
-import com.kansen.fanfan.core.network.api.PhotosApi
-import com.kansen.fanfan.data.media.PreparedPhoto
-import com.kansen.fanfan.data.media.ProgressRequestBody
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -120,11 +120,6 @@ class StatusRepository @Inject constructor(
         }
     }
 
-    private companion object {
-        /** The text the server uses itself when a photo is posted without one. */
-        const val DEFAULT_PHOTO_TEXT = "上传了新照片"
-    }
-
     /**
      * The display names of the given statuses, for the ones that are still in
      * the cache. Missing ones are simply absent.
@@ -143,6 +138,11 @@ class StatusRepository @Inject constructor(
     suspend fun refreshStatus(id: String): Result<Unit> = runCatchingCancellable {
         val dto = statusesApi.show(id)
         store.saveBare(listOf(dto))
+    }
+
+    private companion object {
+        /** The text the server uses itself when a photo is posted without one. */
+        const val DEFAULT_PHOTO_TEXT = "上传了新照片"
     }
 
     /** Thread context around a status, newest first, as display models. */

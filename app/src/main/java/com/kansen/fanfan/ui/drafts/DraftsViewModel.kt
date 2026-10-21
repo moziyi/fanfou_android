@@ -2,18 +2,21 @@ package com.kansen.fanfan.ui.drafts
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.kansen.fanfan.core.database.entity.DraftEntity
 import com.kansen.fanfan.core.model.DraftMapper
 import com.kansen.fanfan.core.model.DraftUi
 import com.kansen.fanfan.data.repository.DraftRepository
 import com.kansen.fanfan.data.repository.StatusRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 /**
  * The draft box: every saved draft, the most recently changed first.
@@ -37,7 +40,29 @@ class DraftsViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    fun delete(id: String) {
-        viewModelScope.launch { draftRepository.clear(id) }
+    /** The draft that was deleted last, so the screen can offer an undo. */
+    private val _lastDeleted = MutableStateFlow<DraftEntity?>(null)
+    val lastDeleted: StateFlow<DraftEntity?> = _lastDeleted.asStateFlow()
+
+    fun delete(draft: DraftUi) {
+        viewModelScope.launch {
+            val entity = draftRepository.load(draft.id) ?: return@launch
+            draftRepository.clear(draft.id)
+            _lastDeleted.value = entity
+        }
+    }
+
+    /** Puts the deleted draft back. */
+    fun undoDelete() {
+        val entity = _lastDeleted.value ?: return
+        _lastDeleted.value = null
+        viewModelScope.launch {
+            draftRepository.save(
+                draftId = entity.id,
+                text = entity.text,
+                inReplyToStatusId = entity.inReplyToStatusId,
+                repostStatusId = entity.repostStatusId,
+            )
+        }
     }
 }

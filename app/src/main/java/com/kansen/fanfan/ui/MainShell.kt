@@ -38,6 +38,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.kansen.fanfan.core.datastore.SelfUser
+import com.kansen.fanfan.core.model.DraftKind
 import com.kansen.fanfan.core.model.PhotoUi
 import com.kansen.fanfan.ui.components.PhotoViewer
 import com.kansen.fanfan.ui.components.PlaceholderScreen
@@ -45,12 +46,11 @@ import com.kansen.fanfan.ui.compose.ComposeScreen
 import com.kansen.fanfan.ui.detail.DetailScreen
 import com.kansen.fanfan.ui.dm.DmConversationScreen
 import com.kansen.fanfan.ui.dm.DmListScreen
+import com.kansen.fanfan.ui.drafts.DraftsScreen
 import com.kansen.fanfan.ui.me.MeScreen
 import com.kansen.fanfan.ui.mentions.MentionsScreen
 import com.kansen.fanfan.ui.timeline.TimelineScreen
 import com.kansen.fanfan.ui.user.UserScreen
-import com.kansen.fanfan.core.model.DraftKind
-import com.kansen.fanfan.ui.drafts.DraftsScreen
 
 private const val ROUTE_TIMELINE = "timeline"
 private const val ROUTE_MENTIONS = "mentions"

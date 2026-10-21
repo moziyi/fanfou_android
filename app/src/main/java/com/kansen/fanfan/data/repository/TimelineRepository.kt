@@ -1,16 +1,16 @@
 package com.kansen.fanfan.data.repository
 
+import com.kansen.fanfan.core.common.runCatchingCancellable
 import com.kansen.fanfan.core.database.dao.StatusDao
 import com.kansen.fanfan.core.model.StatusMapper
 import com.kansen.fanfan.core.model.StatusUi
+import com.kansen.fanfan.core.model.TimelineReconciler
 import com.kansen.fanfan.core.network.api.StatusesApi
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import com.kansen.fanfan.core.network.dto.StatusDto
 import javax.inject.Inject
 import javax.inject.Singleton
-import com.kansen.fanfan.core.common.runCatchingCancellable
-import com.kansen.fanfan.core.network.dto.StatusDto
-import com.kansen.fanfan.core.model.TimelineReconciler
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 enum class TimelineType(val key: String, val label: String) {
     HOME("home", "首页"),
@@ -94,8 +94,14 @@ class TimelineRepository @Inject constructor(
      */
     private suspend fun reconcileDeleted(type: TimelineType, page: List<StatusDto>) {
         if (page.isEmpty()) return
-        val pageIds = page.mapNotNull { it.id }.toSet()
-        val minRawid = page.minOf { it.rawid ?: 0L }
+        // A page without ids or rawids says nothing about the window it
+        // covers; guessing it would delete far more than it should.
+        val window = TimelineReconciler.windowOf(
+            ids = page.map { it.id },
+            rawids = page.map { it.rawid },
+        ) ?: return
+        val pageIds = window.ids
+        val minRawid = window.minRawid
         val cached = statusDao.timelineEntries(type.key).map {
             TimelineReconciler.CachedEntry(
                 id = it.statusId,
