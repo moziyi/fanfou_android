@@ -25,7 +25,7 @@ class FavoritesRepository @Inject constructor(
                 val id = dto.id ?: return@mapNotNull null
                 dto.toUi().copy(id = id, favorited = true)
             }
-        }.getOrDefault(emptyList())
+        }.getOrThrow()
 
     companion object {
         const val PAGE_SIZE = 30

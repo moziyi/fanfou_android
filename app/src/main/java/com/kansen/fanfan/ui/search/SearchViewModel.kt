@@ -40,11 +40,21 @@ class SearchViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
+    /**
+     * Counts the searches. A page that arrives after a newer search has
+     * started belongs to an answer nobody is waiting for any more.
+     */
+    private var generationCounter = 0
+
     fun onQueryChange(query: String) {
         _uiState.update { it.copy(query = query) }
     }
 
-    /** Runs the search of the current query. */
+    /**
+     * Runs the search of the current query. The old results are dropped
+     * right away: keeping them on screen while the new ones are on the way
+     * looks like the search did nothing.
+     */
     fun search() {
         val query = _uiState.value.query.trim()
         if (query.isEmpty()) {
@@ -52,9 +62,15 @@ class SearchViewModel @Inject constructor(
             return
         }
         if (_uiState.value.searching) return
+        val generation = ++generationCounter
         viewModelScope.launch {
-            _uiState.update { it.copy(searching = true, error = null) }
+            _uiState.update {
+                it.copy(searching = true, error = null, results = emptyList(), endReached = false)
+            }
             val result = runCatchingCancellable { searchRepository.search(query) }
+            // A newer search has started in the meantime: this answer belongs
+            // to a query that is no longer on screen.
+            if (generation != generationCounter) return@launch
             result
                 .onSuccess { results ->
                     _uiState.update {
@@ -81,12 +97,16 @@ class SearchViewModel @Inject constructor(
         if (state.results.isEmpty()) return
         val query = state.query.trim()
         if (query.isEmpty()) return
+        val generation = generationCounter
         viewModelScope.launch {
             _uiState.update { it.copy(loadingMore = true, error = null) }
             val oldest = state.results.last().id
             val result = runCatchingCancellable {
                 searchRepository.search(query, maxId = oldest)
             }
+            // The query has changed in the meantime; the older page belongs to
+            // a search that is not on screen any more.
+            if (generation != generationCounter) return@launch
             result
                 .onSuccess { older ->
                     val known = state.results.map { it.id }.toSet()
@@ -95,7 +115,9 @@ class SearchViewModel @Inject constructor(
                         it.copy(
                             results = (state.results + fresh),
                             loadingMore = false,
-                            endReached = older.size < SearchRepository.PAGE_SIZE,
+                            // A page that adds nothing new is the end: the
+                            // server would send the same page again.
+                            endReached = fresh.isEmpty() || older.size < SearchRepository.PAGE_SIZE,
                         )
                     }
                 }
@@ -127,9 +149,5 @@ class SearchViewModel @Inject constructor(
         _uiState.update {
             it.copy(query = "", results = emptyList(), searched = false, error = null, endReached = false)
         }
-    }
-
-    fun dismissError() {
-        _uiState.update { it.copy(error = null) }
     }
 }

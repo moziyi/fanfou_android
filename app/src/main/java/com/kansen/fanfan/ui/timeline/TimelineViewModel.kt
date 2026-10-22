@@ -117,8 +117,4 @@ class TimelineViewModel @Inject constructor(
                 .onFailure { t -> _uiState.update { it.copy(error = t.userMessage()) } }
         }
     }
-
-    fun dismissError() {
-        _uiState.update { it.copy(error = null) }
-    }
 }

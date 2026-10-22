@@ -56,11 +56,11 @@ fun SearchScreen(
         if (state.query.isEmpty()) focusRequester.requestFocus()
     }
 
+    // The error stays in the state: the snackbar is gone after a few seconds,
+    // and the empty state has to say that the search failed instead of
+    // pretending that nothing was found. The next search clears it.
     LaunchedEffect(state.error) {
-        state.error?.let {
-            snackbar.showSnackbar(it)
-            viewModel.dismissError()
-        }
+        state.error?.let { snackbar.showSnackbar(it) }
     }
 
     Scaffold(
@@ -109,12 +109,13 @@ fun SearchScreen(
         ) {
             StatusFeed(
                 statuses = state.results,
-                refreshing = false,
+                refreshing = state.searching,
                 initialLoaded = true,
                 loadingMore = state.loadingMore,
                 endReached = state.endReached,
                 emptyText = when {
                     state.searching -> "搜索中…"
+                    state.error != null -> "搜索失败，请检查网络后重试"
                     state.searched -> "没有找到相关消息"
                     else -> "输入关键词搜索全站消息"
                 },

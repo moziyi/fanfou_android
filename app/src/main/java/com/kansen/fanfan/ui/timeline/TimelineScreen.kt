@@ -35,11 +35,12 @@ fun TimelineScreen(
 
     var repostTarget by remember { mutableStateOf<StatusUi?>(null) }
 
+    // The error stays in the state: the snackbar is gone after a few seconds,
+    // and a timeline without a cache (the public one) would otherwise show
+    // "还没有消息" as if the feed were simply empty. The next refresh clears
+    // it again.
     LaunchedEffect(uiState.error) {
-        uiState.error?.let {
-            snackbar.showSnackbar(it)
-            viewModel.dismissError()
-        }
+        uiState.error?.let { snackbar.showSnackbar(it) }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {

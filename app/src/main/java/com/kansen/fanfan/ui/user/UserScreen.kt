@@ -177,7 +177,7 @@ fun UserScreen(
                                 StatusCard(
                                     status = status,
                                     onClick = { onOpenStatus(status.id) },
-                                    onUserClick = { onOpenUser(status.user?.id.orEmpty()) },
+                                    onUserClick = { status.user?.id?.takeIf { it.isNotBlank() }?.let(onOpenUser) },
                                     onReply = {},
                                     onRepost = {},
                                     onFavorite = {},
@@ -550,7 +550,7 @@ private fun LazyListScope.favoritesList(
         StatusCard(
             status = status,
             onClick = { onOpenStatus(status.id) },
-            onUserClick = { onOpenUser(status.user?.id.orEmpty()) },
+            onUserClick = { status.user?.id?.takeIf { it.isNotBlank() }?.let(onOpenUser) },
             onReply = {},
             onRepost = {},
             onFavorite = { onRemove(status) },

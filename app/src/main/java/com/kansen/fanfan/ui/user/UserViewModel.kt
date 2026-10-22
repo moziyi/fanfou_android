@@ -161,7 +161,9 @@ class UserViewModel @Inject constructor(
         when (tab) {
             1 -> if (!_uiState.value.friends.loadedOnce) loadPeople(1)
             2 -> if (!_uiState.value.followers.loadedOnce) loadPeople(2)
-            3 -> if (!_uiState.value.favorites.loadedOnce) loadFavorites()
+            // The favorites can be changed on the web or in another tab, so
+            // every visit to the tab asks the server again.
+            3 -> if (_uiState.value.favorites.loadedOnce) refreshFavorites() else loadFavorites()
         }
     }
 
@@ -247,6 +249,14 @@ class UserViewModel @Inject constructor(
 
     fun loadMorePeople(tab: Int) = loadPeople(tab)
 
+    /** Reloads the favorites from the first page. */
+    fun refreshFavorites() {
+        _uiState.update {
+            it.copy(favorites = it.favorites.copy(page = 0, endReached = false, error = null))
+        }
+        loadFavorites()
+    }
+
     /** Loads the favorites of the logged-in user. */
     fun loadFavorites() {
         val current = _uiState.value.favorites
@@ -262,7 +272,13 @@ class UserViewModel @Inject constructor(
                     _uiState.update { state ->
                         state.copy(
                             favorites = state.favorites.copy(
-                                items = (state.favorites.items + page).distinctBy { s -> s.id },
+                                // The first page replaces the list, an older
+                                // page is appended to it.
+                                items = if (nextPage == 1) {
+                                    page
+                                } else {
+                                    (state.favorites.items + page).distinctBy { s -> s.id }
+                                },
                                 loading = false,
                                 loadedOnce = true,
                                 endReached = page.size < FavoritesRepository.PAGE_SIZE,
@@ -310,6 +326,14 @@ class UserViewModel @Inject constructor(
                             favorites = state.favorites.copy(
                                 items = state.favorites.items.filterNot { it.id == status.id },
                             ),
+                            // The count in the header belongs to the profile
+                            // that was loaded before; it follows the change.
+                            profile = state.profile?.let { profile ->
+                                profile.copy(
+                                    favouritesCount = ((profile.favouritesCount ?: 0) - 1)
+                                        .coerceAtLeast(0),
+                                )
+                            },
                         )
                     }
                 }

@@ -42,7 +42,6 @@ import com.kansen.fanfan.core.datastore.SelfUser
 import com.kansen.fanfan.core.model.DraftKind
 import com.kansen.fanfan.core.model.PhotoUi
 import com.kansen.fanfan.ui.components.PhotoViewer
-import com.kansen.fanfan.ui.components.PlaceholderScreen
 import com.kansen.fanfan.ui.compose.ComposeScreen
 import com.kansen.fanfan.ui.detail.DetailScreen
 import com.kansen.fanfan.ui.dm.DmConversationScreen

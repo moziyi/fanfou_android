@@ -37,7 +37,7 @@ class SearchRepository @Inject constructor(
                     highlight = SearchHighlight.parse(item.text),
                 )
             }
-    }.getOrDefault(emptyList())
+    }.getOrThrow()
 
     companion object {
         const val PAGE_SIZE = 30

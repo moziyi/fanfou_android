@@ -75,8 +75,8 @@ class TimelineRepository @Inject constructor(
             val oldest = publicSource.oldestId() ?: return@runCatchingCancellable false
             val page = fetch(type, sinceId = null, maxId = oldest)
             if (page.isEmpty()) return@runCatchingCancellable false
-            publicSource.append(page)
-            return@runCatchingCancellable true
+            // A page that adds nothing new means the end of the list.
+            return@runCatchingCancellable publicSource.append(page)
         }
         val oldestId = statusDao.oldestId(type.key) ?: return@runCatchingCancellable false
         val page = fetch(type, sinceId = null, maxId = oldestId)
