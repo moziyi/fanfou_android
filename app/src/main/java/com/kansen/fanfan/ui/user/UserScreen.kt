@@ -56,8 +56,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.kansen.fanfan.core.model.UserProfileUi
 import com.kansen.fanfan.ui.components.StatusCard
+import androidx.compose.foundation.lazy.LazyListScope
+import com.kansen.fanfan.core.model.StatusUi
 
 private val Tabs = listOf("消息", "关注", "粉丝")
+
+/** The favorites are private, so the tab only exists on one's own profile. */
+private const val TAB_FAVORITES = 3
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -156,6 +161,13 @@ fun UserScreen(
                                     text = { Text(label) },
                                 )
                             }
+                            if (state.isSelf) {
+                                Tab(
+                                    selected = tab == TAB_FAVORITES,
+                                    onClick = { tab = TAB_FAVORITES },
+                                    text = { Text("收藏") },
+                                )
+                            }
                         }
                     }
 
@@ -219,6 +231,15 @@ fun UserScreen(
                             onOpenUser = onOpenUser,
                             onLoadMore = { viewModel.loadMorePeople(1) },
                             onRetry = { viewModel.retryPeople(1) },
+                        )
+
+                        TAB_FAVORITES -> favoritesList(
+                            state = state,
+                            onOpenStatus = onOpenStatus,
+                            onOpenUser = onOpenUser,
+                            onRemove = viewModel::removeFavorite,
+                            onLoadMore = viewModel::loadFavorites,
+                            onRetry = viewModel::retryFavorites,
                         )
 
                         else -> peopleList(
@@ -509,5 +530,67 @@ private fun ErrorState(message: String, onRetry: () -> Unit) {
         )
         Spacer(Modifier.height(12.dp))
         TextButton(onClick = onRetry) { Text("重试") }
+    }
+}
+
+/**
+ * The favorites of the logged-in user. The star removes a favorite, and the
+ * entry leaves the list when the server has removed it.
+ */
+private fun LazyListScope.favoritesList(
+    state: UserUiState,
+    onOpenStatus: (String) -> Unit,
+    onOpenUser: (String) -> Unit,
+    onRemove: (StatusUi) -> Unit,
+    onLoadMore: () -> Unit,
+    onRetry: () -> Unit,
+) {
+    val page = state.favorites
+    items(items = page.items, key = { it.id }) { status ->
+        StatusCard(
+            status = status,
+            onClick = { onOpenStatus(status.id) },
+            onUserClick = { onOpenUser(status.user?.id.orEmpty()) },
+            onReply = {},
+            onRepost = {},
+            onFavorite = { onRemove(status) },
+            onPhotoClick = null,
+            showActions = true,
+            showFavorite = true,
+            showReplyRepost = false,
+        )
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+        )
+    }
+    if (page.items.isEmpty() && page.error != null) {
+        item(key = "favorites-error") {
+            ErrorState(message = page.error!!, onRetry = onRetry)
+        }
+    } else if (page.items.isEmpty()) {
+        item(key = "favorites-empty") {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 48.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "还没有收藏",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    } else {
+        item(key = "favorites-footer") {
+            PagingFooter(
+                loading = page.loading,
+                endReached = page.endReached,
+                loadedOnce = page.loadedOnce,
+                error = page.error,
+                onLoadMore = onLoadMore,
+                onRetry = onRetry,
+            )
+        }
     }
 }

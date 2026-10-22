@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.kansen.fanfan.core.common.runCatchingCancellable
+import com.kansen.fanfan.data.repository.FavoritesRepository
+import com.kansen.fanfan.data.repository.StatusRepository
 
 /** One paged people list (friends or followers). */
 data class PeoplePage(
@@ -28,6 +30,16 @@ data class PeoplePage(
     val loadedOnce: Boolean = false,
     val page: Int = 0,
     /** Set when the request failed — e.g. a protected account hides its list. */
+    val error: String? = null,
+)
+
+/** A page of statuses, like [PeoplePage] but for statuses. */
+data class StatusPage(
+    val items: List<StatusUi> = emptyList(),
+    val loading: Boolean = false,
+    val endReached: Boolean = false,
+    val loadedOnce: Boolean = false,
+    val page: Int = 0,
     val error: String? = null,
 )
 
@@ -46,12 +58,16 @@ data class UserUiState(
     val statusesError: String? = null,
     val friends: PeoplePage = PeoplePage(),
     val followers: PeoplePage = PeoplePage(),
+    /** The favorites of the logged-in user; only on one's own profile. */
+    val favorites: StatusPage = StatusPage(),
 )
 
 @HiltViewModel
 class UserViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val userRepository: UserRepository,
+    private val favoritesRepository: FavoritesRepository,
+    private val statusRepository: StatusRepository,
     private val statusesApi: StatusesApi,
     private val tokenStore: TokenStore,
 ) : ViewModel() {
@@ -142,8 +158,11 @@ class UserViewModel @Inject constructor(
 
     /** Called when a people tab becomes visible for the first time. */
     fun ensurePeopleLoaded(tab: Int) {
-        val page = if (tab == 1) _uiState.value.friends else _uiState.value.followers
-        if (!page.loadedOnce) loadPeople(tab)
+        when (tab) {
+            1 -> if (!_uiState.value.friends.loadedOnce) loadPeople(1)
+            2 -> if (!_uiState.value.followers.loadedOnce) loadPeople(2)
+            3 -> if (!_uiState.value.favorites.loadedOnce) loadFavorites()
+        }
     }
 
     fun loadStatuses() {
@@ -227,6 +246,76 @@ class UserViewModel @Inject constructor(
     }
 
     fun loadMorePeople(tab: Int) = loadPeople(tab)
+
+    /** Loads the favorites of the logged-in user. */
+    fun loadFavorites() {
+        val current = _uiState.value.favorites
+        if (current.loading || current.endReached) return
+        _uiState.update { it.copy(favorites = current.copy(loading = true, error = null)) }
+        val nextPage = current.page + 1
+        viewModelScope.launch {
+            val result = runCatchingCancellable {
+                favoritesRepository.list(page = nextPage, count = FavoritesRepository.PAGE_SIZE)
+            }
+            result
+                .onSuccess { page ->
+                    _uiState.update { state ->
+                        state.copy(
+                            favorites = state.favorites.copy(
+                                items = (state.favorites.items + page).distinctBy { s -> s.id },
+                                loading = false,
+                                loadedOnce = true,
+                                endReached = page.size < FavoritesRepository.PAGE_SIZE,
+                                page = nextPage,
+                            ),
+                        )
+                    }
+                }
+                .onFailure { t ->
+                    val message = t.userMessage()
+                    _uiState.update { state ->
+                        state.copy(
+                            favorites = state.favorites.copy(
+                                loading = false,
+                                loadedOnce = true,
+                                endReached = true,
+                                error = message,
+                            ),
+                        )
+                    }
+                }
+        }
+    }
+
+    /** Manual retry after a failed favorites load. */
+    fun retryFavorites() {
+        _uiState.update {
+            it.copy(favorites = it.favorites.copy(endReached = false, error = null, page = 0))
+        }
+        loadFavorites()
+    }
+
+    /**
+     * Removes a status from the favorites. The server is asked first: a
+     * failure keeps the entry, so the list never loses a favorite that the
+     * server still has.
+     */
+    fun removeFavorite(status: StatusUi) {
+        viewModelScope.launch {
+            statusRepository.toggleFavorite(status)
+                .onSuccess { favorited ->
+                    if (favorited) return@onSuccess
+                    _uiState.update { state ->
+                        state.copy(
+                            favorites = state.favorites.copy(
+                                items = state.favorites.items.filterNot { it.id == status.id },
+                            ),
+                        )
+                    }
+                }
+                .onFailure { t -> _uiState.update { it.copy(message = t.userMessage()) } }
+        }
+    }
 
     /** Manual retry after a failed people list load. */
     fun retryPeople(tab: Int) {

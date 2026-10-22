@@ -70,6 +70,11 @@ fun StatusCard(
     modifier: Modifier = Modifier,
     showFavorite: Boolean = true,
     showActions: Boolean = true,
+    /**
+     * Whether the reply and repost buttons are drawn. The favorites list has
+     * only the star: it removes the entry.
+     */
+    showReplyRepost: Boolean = true,
     isContextTarget: Boolean = false,
 ) {
     Surface(
@@ -122,6 +127,7 @@ fun StatusCard(
                     status = status,
                     showActions = showActions,
                     showFavorite = showFavorite,
+                    showReplyRepost = showReplyRepost,
                     onReply = onReply,
                     onRepost = onRepost,
                     onFavorite = onFavorite,
@@ -214,6 +220,7 @@ private fun FooterRow(
     status: StatusUi,
     showActions: Boolean,
     showFavorite: Boolean,
+    showReplyRepost: Boolean,
     onReply: () -> Unit,
     onRepost: () -> Unit,
     onFavorite: () -> Unit,
@@ -238,8 +245,10 @@ private fun FooterRow(
         }
 
         if (showActions) {
-            ActionIcon(Icons.Outlined.ChatBubbleOutline, "回复", onReply)
-            ActionIcon(Icons.Outlined.SwapHoriz, "转发", onRepost)
+            if (showReplyRepost) {
+                ActionIcon(Icons.Outlined.ChatBubbleOutline, "回复", onReply)
+                ActionIcon(Icons.Outlined.SwapHoriz, "转发", onRepost)
+            }
             if (showFavorite) {
                 ActionIcon(
                     icon = if (status.favorited) Icons.Filled.Star else Icons.Outlined.StarBorder,
