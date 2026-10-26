@@ -6,9 +6,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The repost prefill: `转@<author> <original>`, truncated so the whole text
- * still fits the 140-point limit, exactly the way the official client's own
- * repost chains look (golden data in StatusQuoteDisplayTest).
+ * The repost prefill: `转@<author> <original>`, copied verbatim into the one
+ * composer — exactly what the official web client does with its
+ * /home?status=…&repost_status_id=… 转发 links. No truncation at prefill
+ * time (the official count goes negative); the cut happens at send time.
  */
 class StatusTextRepostPrefillTest {
 
@@ -18,6 +19,16 @@ class StatusTextRepostPrefillTest {
             "转@咕咕咕Y 饱满的果实！",
             StatusText.repostPrefill("咕咕咕Y", "饱满的果实！"),
         )
+    }
+
+    @Test
+    fun prefillCopiesAnOverlongOriginalWhole() {
+        // The official web prefills the full text and only shows -8 in the
+        // counter; the cut is a send-time concern, not a prefill concern.
+        val overlong = "的的".repeat(70) + "尾巴"
+        val result = StatusText.repostPrefill("Fallacy", overlong)!!
+        assertEquals("转@Fallacy $overlong", result)
+        assertTrue(!StatusText.fits(result))
     }
 
     @Test
@@ -34,39 +45,26 @@ class StatusTextRepostPrefillTest {
     }
 
     @Test
-    fun overlongOriginalIsTruncatedToTheLimitWithoutAMarker() {
-        val original = "ゅ".repeat(80) + " Ordinary story".repeat(10)
-        val result = StatusText.repostPrefill("Fallacy", original)!!
-        assertEquals(StatusText.MAX_LENGTH, StatusText.length(result))
-        assertTrue(result.startsWith("转@Fallacy "))
+    fun truncateCutsByCodePointsAtTheLimit() {
+        assertEquals("的的".repeat(65), StatusText.truncate("的的".repeat(70), 130))
+        assertEquals(130, StatusText.length(StatusText.truncate("的的".repeat(70), 130)))
     }
 
     @Test
-    fun truncationNeverSplitsASurrogatePair() {
-        // "转@咕咕咕Y " is 7 code points, leaving 133 for the original;
-        // the cut runs through a run of emoji, and the pair stays whole.
-        val original = "😀".repeat(70) + "x".repeat(200)
-        // budget = 140 - 7 points of "转@咕咕咕Y " → 133: all 70 emoji fit,
-        // the cut lands in the x run on a full code-point boundary.
-        val result = StatusText.repostPrefill("咕咕咕Y", original)!!
-        assertEquals("转@咕咕咕Y " + "😀".repeat(70) + "x".repeat(63), result)
-        assertEquals(StatusText.MAX_LENGTH, StatusText.length(result))
+    fun truncateWholeTextWhenItAlreadyFits() {
+        val text = "饱满的果实！"
+        assertEquals(text, StatusText.truncate(text, 140))
+        assertEquals("", StatusText.truncate(text, 0))
     }
 
     @Test
-    fun aCodePointThatFitsOnlyWithItsPairIsDroppedAtTheBoundary() {
-        // "转@咕咕咕Y " leaves 133 points; 133 x's fit, the emoji would be #134
-        // and must not appear alone in half.
-        val original = "x".repeat(133) + "😀😀😀"
-        val result = StatusText.repostPrefill("咕咕咕Y", original)!!
-        assertEquals("转@咕咕咕Y " + "x".repeat(133), result)
-        assertEquals(StatusText.MAX_LENGTH, StatusText.length(result))
-    }
-
-    @Test
-    fun exactFitBoundaryKeepsEverything() {
-        // "转@Fallacy " leaves 130 code points for the original.
-        val original = "的的".repeat(70) // 140 code points
-        assertEquals("转@Fallacy " + "的的".repeat(65), StatusText.repostPrefill("Fallacy", original))
+    fun truncateNeverSplitsASurrogatePair() {
+        // 133 code points requested out of an emoji-led run: all 70 emoji
+        // (1 code point each) survive, then x's fill to the limit; the cut
+        // lands inside the x run, never inside a pair.
+        val text = "😀".repeat(70) + "x".repeat(200)
+        val result = StatusText.truncate(text, 133)
+        assertEquals("😀".repeat(70) + "x".repeat(63), result)
+        assertEquals(133, StatusText.length(result))
     }
 }

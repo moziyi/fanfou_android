@@ -7,6 +7,7 @@ import com.kansen.fanfan.core.database.dao.StatusDao
 import com.kansen.fanfan.core.database.entity.FavoriteOverrideEntity
 import com.kansen.fanfan.core.model.StatusMapper
 import com.kansen.fanfan.core.model.StatusMapper.toUi
+import com.kansen.fanfan.core.model.StatusText
 import com.kansen.fanfan.core.model.StatusUi
 import com.kansen.fanfan.core.network.api.FavoritesApi
 import com.kansen.fanfan.core.network.api.PhotosApi
@@ -56,9 +57,17 @@ class StatusRepository @Inject constructor(
                 else -> "转@$repostAuthor"
             }
         }
+        // The official clients keep chains at 140: the prefill itself may run
+        // over (the web even shows a negative count), the cut lands at send
+        // time and takes the tail of the original, never the comment.
+        val finalBody = if (repostStatusId != null) {
+            StatusText.truncate(body, StatusText.MAX_LENGTH)
+        } else {
+            body
+        }
         val dto = try {
             statusesApi.update(
-                status = body,
+                status = finalBody,
                 inReplyToStatusId = inReplyToStatusId,
                 repostStatusId = repostStatusId,
             )

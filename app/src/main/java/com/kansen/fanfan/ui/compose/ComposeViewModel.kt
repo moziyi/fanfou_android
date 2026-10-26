@@ -48,8 +48,11 @@ data class ComposeUiState(
     val uploadProgress: Float = 0f,
 ) {
     val canPublish: Boolean
+        // A repost stays sendable even when the prefill pushes the count
+        // over 140 — the official web allows it and the cut happens at send
+        // time (StatusRepository.post).
         get() = !posting && !photoBusy &&
-            StatusText.fits(text) && (isRepost || text.isNotBlank())
+            (isRepost || (StatusText.fits(text) && text.isNotBlank()))
 
     val remaining: Int get() = StatusText.remaining(text)
 

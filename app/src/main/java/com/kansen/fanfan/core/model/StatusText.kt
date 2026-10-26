@@ -12,24 +12,27 @@ object StatusText {
     fun fits(text: String): Boolean = remaining(text) >= 0
 
     /**
-     * The text a repost starts from: `转@<author> <original>`, cut by Unicode
-     * code points so it fits exactly like the official client's own repost
-     * chains do (no ellipsis — a chain that breaks mid-sentence in the wild
-     * always stops at the hard 140 boundary). Consumers type their own comment
-     * in front of the `转`; an author without a screen name gives nothing.
+     * The text a repost starts from: `转@<author> <original>` — the exact
+     * thing the official web client drops into the same composer (a plain
+     * link to /home?status=…&repost_status_id=…, no dialog of its own). The
+     * prefill is NOT truncated; the official web lets the count go negative.
+     * The cut happens once, at send time (truncate). Consumers type their own
+     * comment in front of the 转; an author without a screen name gives
+     * nothing.
      */
     fun repostPrefill(screenName: String?, originalText: String): String? {
         val name = screenName?.trim().takeUnless { it.isNullOrEmpty() } ?: return null
-        val prefix = "转@$name"
         val original = originalText.trim()
-        if (original.isEmpty()) return prefix
-        val full = "$prefix $original"
-        if (fits(full)) return full
-        return "$prefix " + truncate(original, MAX_LENGTH - length("$prefix "))
+        return if (original.isEmpty()) "转@$name" else "转@$name $original"
     }
 
-    /** Cuts by code points, never in the middle of a surrogate pair. */
-    private fun truncate(text: String, maxCodePoints: Int): String {
+    /**
+     * Cuts by code points, never in the middle of a surrogate pair
+     * (positive max expected). The web client clamps each keystroke the same
+     * way, so an overflowing repost loses the tail of the original, not the
+     * comment typed in front of it.
+     */
+    fun truncate(text: String, maxCodePoints: Int): String {
         if (maxCodePoints <= 0) return ""
         var end = 0
         var count = 0
