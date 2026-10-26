@@ -5,14 +5,11 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kansen.fanfan.core.model.StatusUi
-import com.kansen.fanfan.ui.components.RepostDialog
 import com.kansen.fanfan.ui.components.StatusFeed
 
 @Composable
@@ -20,12 +17,12 @@ fun MentionsScreen(
     onOpenStatus: (String) -> Unit,
     onOpenUser: (String) -> Unit,
     onReply: (StatusUi) -> Unit,
+    onRepost: (StatusUi) -> Unit,
     viewModel: MentionsViewModel = hiltViewModel(),
 ) {
     val statuses by viewModel.statuses.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    var repostTarget by remember { mutableStateOf<StatusUi?>(null) }
 
     LaunchedEffect(uiState.error) {
         uiState.error?.let {
@@ -47,19 +44,8 @@ fun MentionsScreen(
         onOpenStatus = onOpenStatus,
         onOpenUser = onOpenUser,
         onReply = onReply,
-        onRepost = { repostTarget = it },
+        onRepost = onRepost,
         onFavorite = viewModel::toggleFavorite,
         modifier = Modifier.fillMaxSize(),
     )
-
-    repostTarget?.let { target ->
-        RepostDialog(
-            target = target,
-            onDismiss = { repostTarget = null },
-            onConfirm = { comment ->
-                viewModel.repost(target, comment)
-                repostTarget = null
-            },
-        )
-    }
 }

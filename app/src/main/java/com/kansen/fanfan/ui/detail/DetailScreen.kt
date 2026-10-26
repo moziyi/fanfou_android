@@ -34,7 +34,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kansen.fanfan.core.model.PhotoUi
 import com.kansen.fanfan.core.model.StatusUi
-import com.kansen.fanfan.ui.components.RepostDialog
 import com.kansen.fanfan.ui.components.StatusCard
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,6 +41,7 @@ import com.kansen.fanfan.ui.components.StatusCard
 fun DetailScreen(
     onBack: () -> Unit,
     onReply: (StatusUi) -> Unit,
+    onRepost: (StatusUi) -> Unit,
     onOpenPhoto: (PhotoUi) -> Unit,
     onOpenUser: (String) -> Unit,
     viewModel: DetailViewModel = hiltViewModel(),
@@ -50,7 +50,6 @@ fun DetailScreen(
     val selfUserId by viewModel.selfUserId.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    var repostTarget by remember { mutableStateOf<StatusUi?>(null) }
     var menuOpen by remember { mutableStateOf(false) }
 
     val isOwnStatus = status?.user?.id?.let { it == selfUserId } == true
@@ -151,7 +150,7 @@ fun DetailScreen(
                             status = target,
                             onClick = {},
                             onReply = { onReply(target) },
-                            onRepost = { repostTarget = target },
+                            onRepost = { onRepost(target) },
                             onFavorite = { viewModel.toggleFavorite(target) },
                             onPhotoClick = onOpenPhoto,
                             onUserClick = { target.user?.id?.let(onOpenUser) },
@@ -172,7 +171,7 @@ fun DetailScreen(
                                 status = threadStatus,
                                 onClick = {},
                                 onReply = { onReply(threadStatus) },
-                                onRepost = { repostTarget = threadStatus },
+                                onRepost = { onRepost(threadStatus) },
                                 onFavorite = { viewModel.toggleFavorite(threadStatus) },
                                 onPhotoClick = onOpenPhoto,
                                 onUserClick = { threadStatus.user?.id?.let(onOpenUser) },
@@ -183,16 +182,5 @@ fun DetailScreen(
                 }
             }
         }
-    }
-
-    repostTarget?.let { target ->
-        RepostDialog(
-            target = target,
-            onDismiss = { repostTarget = null },
-            onConfirm = { comment ->
-                viewModel.repost(target, comment)
-                repostTarget = null
-            },
-        )
     }
 }

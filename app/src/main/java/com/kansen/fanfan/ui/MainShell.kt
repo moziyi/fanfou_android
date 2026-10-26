@@ -198,6 +198,7 @@ fun MainShell(
                     onOpenStatus = { id -> navController.navigate("detail/$id") },
                     onOpenUser = { id -> navController.navigate(userRoute(id)) },
                     onReply = { status -> navController.navigate(composeRoute(inReplyTo = status.id)) },
+                    onRepost = { status -> navController.navigate(composeRoute(repostOf = status.id)) },
                 )
             }
             composable(ROUTE_MENTIONS) {
@@ -205,6 +206,7 @@ fun MainShell(
                     onOpenStatus = { id -> navController.navigate("detail/$id") },
                     onOpenUser = { id -> navController.navigate(userRoute(id)) },
                     onReply = { status -> navController.navigate(composeRoute(inReplyTo = status.id)) },
+                    onRepost = { status -> navController.navigate(composeRoute(repostOf = status.id)) },
                 )
             }
             composable(ROUTE_DM) {
@@ -293,6 +295,7 @@ fun MainShell(
                 DetailScreen(
                     onBack = { navController.popBackStack() },
                     onReply = { status -> navController.navigate(composeRoute(inReplyTo = status.id)) },
+                    onRepost = { status -> navController.navigate(composeRoute(repostOf = status.id)) },
                     onOpenPhoto = openPhoto,
                     onOpenUser = { id -> navController.navigate(userRoute(id)) },
                 )

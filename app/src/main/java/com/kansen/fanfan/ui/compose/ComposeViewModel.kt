@@ -87,9 +87,20 @@ class ComposeViewModel @Inject constructor(
         viewModelScope.launch {
             val draft = draftRepository.load(draftId)
             val context = (inReplyToId ?: repostOfId)?.let { loadStatus(it) }
+            // A repost starts from the official form `转@<author> <original>` so
+            // the comment the user types lands in front of the 转字, exactly the
+            // way the chains in the wild are built. A saved draft wins.
+            val prefill = if (repostOfId != null && draft?.text.isNullOrBlank()) {
+                StatusText.repostPrefill(
+                    context?.user?.screenName ?: context?.repostScreenName,
+                    context?.text.orEmpty(),
+                )
+            } else {
+                null
+            }
             _uiState.update {
                 it.copy(
-                    text = draft?.text ?: it.text,
+                    text = draft?.text ?: prefill ?: it.text,
                     replyTo = if (inReplyToId != null) context else null,
                     repostOf = if (repostOfId != null) context else null,
                     isRepost = repostOfId != null,

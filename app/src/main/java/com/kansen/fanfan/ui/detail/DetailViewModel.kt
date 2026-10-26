@@ -95,16 +95,6 @@ class DetailViewModel @Inject constructor(
         }
     }
 
-    fun repost(status: StatusUi, comment: String) {
-        viewModelScope.launch {
-            statusRepository.post(
-                text = comment,
-                repostStatusId = status.id,
-                repostAuthor = status.user?.screenName,
-            )
-                .onFailure { t -> _uiState.update { it.copy(error = t.userMessage()) } }
-        }
-    }
 
     fun dismissError() {
         _uiState.update { it.copy(error = null) }

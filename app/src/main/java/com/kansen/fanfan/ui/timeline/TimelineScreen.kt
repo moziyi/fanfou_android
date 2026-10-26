@@ -10,15 +10,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kansen.fanfan.core.model.StatusUi
 import com.kansen.fanfan.data.repository.TimelineType
-import com.kansen.fanfan.ui.components.RepostDialog
 import com.kansen.fanfan.ui.components.StatusFeed
 
 @Composable
@@ -26,14 +23,13 @@ fun TimelineScreen(
     onOpenStatus: (String) -> Unit,
     onOpenUser: (String) -> Unit,
     onReply: (StatusUi) -> Unit,
+    onRepost: (StatusUi) -> Unit,
     viewModel: TimelineViewModel = hiltViewModel(),
 ) {
     val type by viewModel.type.collectAsStateWithLifecycle()
     val statuses by viewModel.statuses.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-
-    var repostTarget by remember { mutableStateOf<StatusUi?>(null) }
 
     // The error stays in the state: the snackbar is gone after a few seconds,
     // and a timeline without a cache (the public one) would otherwise show
@@ -69,20 +65,9 @@ fun TimelineScreen(
                 onOpenStatus = onOpenStatus,
                 onOpenUser = onOpenUser,
                 onReply = onReply,
-                onRepost = { repostTarget = it },
+                onRepost = onRepost,
                 onFavorite = viewModel::toggleFavorite,
             )
         }
-    }
-
-    repostTarget?.let { target ->
-        RepostDialog(
-            target = target,
-            onDismiss = { repostTarget = null },
-            onConfirm = { comment ->
-                viewModel.repost(target, comment)
-                repostTarget = null
-            },
-        )
     }
 }

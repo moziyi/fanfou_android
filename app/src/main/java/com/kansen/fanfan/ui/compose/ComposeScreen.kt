@@ -41,7 +41,12 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,6 +67,24 @@ fun ComposeScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+
+    // The composer keeps its own TextFieldValue so the caret can be placed: a
+    // repost seeds the box with `转@… 原文` and the user types in front of it,
+    // so the caret starts home at position 0 (before the 转).
+    var field by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(""))
+    }
+    // Any text that arrives from the view model alone (draft restore, repost
+    // prefill, the unconfirmed-post reset) re-places the caret; ordinary
+    // typing never mismatches, so the effect is a no-op while writing.
+    LaunchedEffect(state.text) {
+        if (state.text != field.text) {
+            field = TextFieldValue(
+                text = state.text,
+                selection = TextRange(if (state.isRepost || state.text.isEmpty()) 0 else state.text.length),
+            )
+        }
+    }
 
     // The system photo picker needs no permission: on Android 13+ it is the
     // photo picker, below that the document picker.
@@ -136,8 +159,11 @@ fun ComposeScreen(
             }
 
             OutlinedTextField(
-                value = state.text,
-                onValueChange = viewModel::onTextChange,
+                value = field,
+                onValueChange = {
+                    field = it
+                    viewModel.onTextChange(it.text)
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(200.dp),
