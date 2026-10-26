@@ -9,3 +9,11 @@
 .externalNativeBuild
 .cxx
 /.cortexkit/
+
+# The release key of the app: the file with the passwords and the
+# keystore itself stay out of the repository.
+/keystore.properties
+/keystore/
+
+# The packaged release apk is a build artifact.
+/fanfan-*.apk
